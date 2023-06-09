@@ -45,6 +45,14 @@ void expoparabola() {
   
   TFile out_file("expoparabola.root","RECREATE");
   histo.Write();
-  out_file.Close();
+  
+  
+  //histo.SaveAs("expoparabola_histogram.root");
+  //out_file.Close();
+  
+  //TCanvas c;
+  //histo.Draw();
+  //c.SaveAs("histo.pdf");
+  
   
 }
