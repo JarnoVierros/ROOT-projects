@@ -43,7 +43,7 @@ void expoparabola() {
   
   mycanvas->Print("expoparabola.pdf");
   
-  TFile out_file("expoparabola.root","RECREATE");
+  TFile out_file("expoparabola.root"); //,"RECREATE"
   histo.Write();
   
   
