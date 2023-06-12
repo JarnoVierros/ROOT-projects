@@ -12,7 +12,7 @@ void circle(){
   
   circle_ntuple.Branch("X", &X, "X/F");
   circle_ntuple.Branch("Y", &Y, "Y/F");
-  circle_ntuple.Branch("quadrant", &quadrant);
+  circle_ntuple.Branch("quadrant", &quadrant, "quadrant/C");
   
   TRandom3 rndm;
   

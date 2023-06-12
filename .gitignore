@@ -1,2 +1,5 @@
 *.pdf
 *.root
+c_cpp_properties.json
+settings.json
+.vscode/
