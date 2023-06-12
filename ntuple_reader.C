@@ -12,6 +12,11 @@ void ntuple_reader() {
     auto histo = new TH2F("histo", "trk_eta and trk_phi;trk_eta;trk_phi",100,-5,5,100,-5,5);
 
     while (Reader.Next()) {
+
+        if (trk_eta.GetSize() != 4) {
+            continue;
+        }
+
         for (int i=0;i<trk_eta.GetSize();++i) {
             //cout << "trk_eta: " << trk_eta[i] << ", trk_phi: " << trk_phi[i] << endl;
             histo->Fill(trk_eta[i], trk_phi[i]);
