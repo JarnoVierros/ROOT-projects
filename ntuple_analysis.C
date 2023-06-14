@@ -11,6 +11,8 @@ class Particle {
         float p_x;
         float p_y;
         float p_z;
+        float m;
+        float E;
 
         Particle(int type_in) {
             type = type_in;   
@@ -18,12 +20,24 @@ class Particle {
 
         void calculate_3d_momentum() {
             if (p_t==0||eta==0||phi==0) {
-                throw "required variables not set";
+                throw invalid_argument("required variables not set");
             }
             p_x = p_t*cos(phi);
             p_y = p_t*sin(phi);
             p_z = p_t*sinh(eta);
-        };
+        }
+
+        void calculate_energy() {
+            E = sqrt(pow(p, 2) + pow(m, 2));
+        }
+
+        void calculate_total_momentum() {
+            p = sqrt(pow(p_x, 2)+pow(p_y, 2)+pow(p_z, 2));
+        }
+
+        void calculate_mass() {
+            m = sqrt(pow(E, 2) - pow(p, 2));
+        }
 };
 
 class Event {
@@ -34,19 +48,75 @@ class Event {
             particles = particles_in;
             particle_count = particle_count_in;
         }
+
+        int calculate_total_charge() {
+            float total_charge = 0.;
+            for (int i=0; i<particle_count; ++i) {
+                Particle* particle = *(particles+i);
+                total_charge += particle->charge;
+            }
+            return total_charge;
+        }
+
+        void reconstruct_2_rhos(Particle* rhos[2][2]) {
+            if (particle_count != 4) {
+                throw invalid_argument("invalid number of particles");
+            }
+
+            Particle* positives[2];
+            int positive_index = 0;
+            Particle* negatives[2];
+            int negative_index = 0;
+
+            for (int i=0; i<4; ++i) {
+                Particle* current_particle = *(particles+i);
+                if (current_particle->charge == 1) {
+                    positives[positive_index] = current_particle;
+                    positive_index++;
+                } else if (current_particle->charge == -1) {
+                    negatives[negative_index] = current_particle;
+                    negative_index++;
+                } else {
+                    throw invalid_argument("particle has invalid charge");
+                }
+            }
+
+            Particle* rho1_c1 = reconstruct_rho(positives[0], negatives[0]);
+            rhos[0][0] = rho1_c1;
+            Particle* rho2_c1 = reconstruct_rho(positives[1], negatives[1]);
+            rhos[0][1] = rho2_c1;
+            
+            Particle* rho1_c2 = reconstruct_rho(positives[0], negatives[1]);
+            rhos[1][0] = rho1_c2;
+            Particle* rho2_c2 = reconstruct_rho(positives[1], negatives[0]);
+            rhos[1][1] = rho2_c2;
+        }
+    
+        Particle* reconstruct_rho(Particle* positive, Particle* negative) {
+            Particle* rho = new Particle(2);
+            rho->E = positive->E + negative->E;
+            rho->p_x = positive->p_x + negative->p_x;
+            rho->p_y = positive->p_y + negative->p_y;
+            rho->p_z = positive->p_z + negative->p_z;
+            rho->calculate_total_momentum();
+            rho->calculate_mass();
+            return rho;
+        }
 };
 
 
 void ntuple_analysis() {
 
-
     //const Particle nul_particle = Particle(0);
     const string filename = "TOTEM43.root";
+    const float muon_mass = 139.57039;
 
     TFile *file = TFile::Open(filename.c_str());
     TTree* tree = (TTree*)file->Get("tree");
     TTreeReader Reader(tree);
     //TTreeReader Reader("tree", file);
+
+    auto rho_masses = new TH2F("rho_masses", "Masses of potential rho particles;m1/MeV;m2/MeV",200,200,1400,200,200,1400);
 
     TTreeReaderArray<Float_t> trk_p(Reader, "trk_p");
     TTreeReaderArray<Float_t> trk_pt(Reader, "trk_pt");
@@ -54,10 +124,10 @@ void ntuple_analysis() {
     TTreeReaderArray<Float_t> trk_eta(Reader, "trk_eta");
     TTreeReaderArray<Float_t> trk_phi(Reader, "trk_phi");
 
-    int event_count = tree->GetEntries();
-    Event* events[4];
+    //int event_count = tree->GetEntries();
+    //Event* events[4];
 
-    int event_number = 0;
+    //int event_number = 0;
     while (Reader.Next()) {
 
         if (trk_p.GetSize() != 4) {
@@ -68,14 +138,17 @@ void ntuple_analysis() {
 
         for (int i=0;i<4;++i) {
             Particle* particle = new Particle(1);
-            particle->p = trk_p[i];
-            particle->p_t = trk_pt[i];
+            particle->p = 1000*trk_p[i];
+            particle->p_t = 1000*trk_pt[i];
             particle->charge = trk_q[i];
             particle->eta = trk_eta[i];
             particle->phi = trk_phi[i];
+            particle->m = muon_mass;
             particle->calculate_3d_momentum();
+            particle->calculate_energy();
             particles[i] = particle;
         }
+        
         /*
         for (Particle* particle : particles) {
             //cout << "momentum: " << particle.p_t << ", charge: " << particle.charge << endl;
@@ -84,6 +157,8 @@ void ntuple_analysis() {
             << ", Dp_t: " << particle->p_t - sqrt(pow(particle->p_x, 2)+pow(particle->p_y, 2)) << ", charge: " << particle->charge << endl;
         }
         */
+        //cout << endl;
+        
         /*
         cout << *particles << endl;
         cout << particles[0] << endl;
@@ -91,18 +166,51 @@ void ntuple_analysis() {
         cout << particles[1] << endl;
         cout << particles[2] << endl;
         */
+
+        /*
         if (event_number<4) {
             Event current_event(particles, 4);
             events[event_number] = &current_event;
         }
+        */
 
+        Event current_event(particles, 4);
+
+        float total_charge = current_event.calculate_total_charge();
+        if (total_charge != 0) {
+            //cout << "INVALID" << endl << endl;
+            continue;
+        }
+
+        Particle* rhos[2][2];
+        current_event.reconstruct_2_rhos(rhos);
+
+        float masses[2];
+
+        for (int i=0; i<2; ++i) {
+            for (int j=0; j<2; ++j) {
+                Particle* rho = rhos[i][j];
+                masses[j] = rho->m;
+                //cout << "m: " << rho->m << endl;
+            }
+            rho_masses->Fill(masses[0], masses[1]);
+        }
 
         //cout << endl;
-        ++event_number;
+        //++event_number;
     }
-    cout << "\n\n\n\nSTART\n";
+
+
+
+    rho_masses->Draw("Colz");
+
+    TLine line1 = TLine(770, 200, 770, 1400);
+    line1.DrawClone();
+
+    TLine line2 = TLine(200, 770, 1400, 770);
+    line2.DrawClone();
     
-    
+    /*
     for (Event* event : events) {
         for (int i=0; i<event->particle_count; ++i) {
             Particle* particle = *(event->particles+i);
@@ -110,5 +218,5 @@ void ntuple_analysis() {
         }
         cout << endl;
     }
-    
+    */
 }
