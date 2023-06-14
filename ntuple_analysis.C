@@ -107,9 +107,9 @@ class Event {
 
 void ntuple_analysis() {
 
-    //const Particle nul_particle = Particle(0);
-    const string filename = "TOTEM43.root";
+    const string filename = "TOTEM43.root"; //"TOTEM43.root", kpkm.roo, 110000.root
     const float muon_mass = 139.57039;
+    const float rho_mass = 770;
 
     TFile *file = TFile::Open(filename.c_str());
     TTree* tree = (TTree*)file->Get("tree");
@@ -124,10 +124,6 @@ void ntuple_analysis() {
     TTreeReaderArray<Float_t> trk_eta(Reader, "trk_eta");
     TTreeReaderArray<Float_t> trk_phi(Reader, "trk_phi");
 
-    //int event_count = tree->GetEntries();
-    //Event* events[4];
-
-    //int event_number = 0;
     while (Reader.Next()) {
 
         if (trk_p.GetSize() != 4) {
@@ -157,22 +153,6 @@ void ntuple_analysis() {
             << ", Dp_t: " << particle->p_t - sqrt(pow(particle->p_x, 2)+pow(particle->p_y, 2)) << ", charge: " << particle->charge << endl;
         }
         */
-        //cout << endl;
-        
-        /*
-        cout << *particles << endl;
-        cout << particles[0] << endl;
-        cout << *(particles + 1) << endl;
-        cout << particles[1] << endl;
-        cout << particles[2] << endl;
-        */
-
-        /*
-        if (event_number<4) {
-            Event current_event(particles, 4);
-            events[event_number] = &current_event;
-        }
-        */
 
         Event current_event(particles, 4);
 
@@ -197,26 +177,30 @@ void ntuple_analysis() {
         }
 
         //cout << endl;
-        //++event_number;
     }
 
 
-
+    auto main = new TCanvas("Canvas1","Canvas1");
     rho_masses->Draw("Colz");
 
-    TLine line1 = TLine(770, 200, 770, 1400);
+    TLine line1 = TLine(rho_mass, 200, rho_mass, 1400);
     line1.DrawClone();
 
-    TLine line2 = TLine(200, 770, 1400, 770);
+    TLine line2 = TLine(200, rho_mass, 1400, rho_mass);
     line2.DrawClone();
+
+
+    auto projections = new TCanvas("Canvas2","Canvas2");
+    projections->Divide(1,2);
+
+    projections->cd(1);
+    rho_masses->ProjectionX()->Draw();
+    TLine line3 = TLine(rho_mass, 0, rho_mass, 1.05*rho_masses->ProjectionX()->GetMaximum());
+    line3.DrawClone();
+
+    projections->cd(2);
+    rho_masses->ProjectionY()->Draw();
+    TLine line4 = TLine(rho_mass, 0, rho_mass, 1.05*rho_masses->ProjectionY()->GetMaximum());
+    line4.DrawClone();
     
-    /*
-    for (Event* event : events) {
-        for (int i=0; i<event->particle_count; ++i) {
-            Particle* particle = *(event->particles+i);
-            cout << particle->p << endl;
-        }
-        cout << endl;
-    }
-    */
 }
