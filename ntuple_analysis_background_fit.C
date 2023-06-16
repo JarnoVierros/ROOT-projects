@@ -124,6 +124,14 @@ void ntuple_analysis_background_fit() {
     const float muon_mass = 139.57039;
     const float rho_mass = 730; //770
 
+    //gROOT->SetStyle("Plain");   // set plain TStyle
+    gStyle->SetOptStat(0); // draw statistics on plots,
+                                // (0) for no output
+    //gStyle->SetOptFit(1111);    // draw fit results on plot,
+                                // (0) for no ouput
+    //gStyle->SetPalette(57);     // set color map
+    //gStyle->SetOptTitle(0);       // suppress title box
+
     TFile *file = TFile::Open(filename.c_str());
     TTree* tree = (TTree*)file->Get("tree");
     TTreeReader Reader(tree);
@@ -213,10 +221,30 @@ void ntuple_analysis_background_fit() {
     line2.DrawClone();
 
 
+    TArrow arrow1(850,550,750,710,0.02,"|>");
+    arrow1.SetLineWidth(3);
+    arrow1.DrawClone();
+
+    TLatex text1(860,500,"\\rho");
+    text1.DrawClone();
+
+
+    TArrow arrow2(350,350,450,450,0.02,"|>");
+    arrow2.SetLineWidth(3);
+    arrow2.DrawClone();
+
+    TLatex text2(300,300,"K^{*}");
+    text2.DrawClone();
+
+
+    main->Print("rho_masses.pdf","RECREATE");
+
     auto projections = new TCanvas("Canvas2","Canvas2");
     projections->Divide(1,2);
 
     projections->cd(1);
+    rho_masses->ProjectionX()->SetTitle("Mass of first potential rho particle");
+    rho_masses->ProjectionX()->GetYaxis()->SetTitle("events");
     rho_masses->ProjectionX()->Draw();
     //TLine line3 = TLine(rho_mass, 0, rho_mass, 1.05*rho_masses->ProjectionX()->GetMaximum());
     //line3.DrawClone();
@@ -269,7 +297,7 @@ void ntuple_analysis_background_fit() {
 
     TString true_rho_string = get_par(rho_fit, 0)+"*TMath::Gaus(x,"+get_par(rho_fit, 1)+","+get_par(rho_fit, 2)+")";
     TF1 true_rho("true_rho", true_rho_string, 200, 1400);
-    true_rho.SetLineColor(3);
+    true_rho.SetLineColor(4);
     true_rho.DrawCopy("Same");
     
     
@@ -277,18 +305,27 @@ void ntuple_analysis_background_fit() {
 
     TString true_k_string = get_par(k_fit, 0)+"*TMath::Gaus(x,"+get_par(k_fit, 1)+","+get_par(k_fit, 2)+")";
     TF1 true_k("true_k", true_k_string, 200, 1400);
-    true_k.SetLineColor(4);
+    true_k.SetLineColor(3);
     true_k.DrawCopy("Same");
 
 
-    projections->cd(2);
-    rho_masses->ProjectionY()->Draw();
-    //TLine line4 = TLine(rho_mass, 0, rho_mass, 1.05*rho_masses->ProjectionY()->GetMaximum());
-    //line4.DrawClone();
+    TLatex text3(750,800,"\\rho");
+    text3.DrawClone();
+
+    TLatex text4(500,950,"K^{*}");
+    text4.DrawClone();
 
 
 
     ///////////////////////////////////////////////////////
+
+
+    projections->cd(2);
+    rho_masses->ProjectionY()->SetTitle("Mass of second potential rho particle");
+    rho_masses->ProjectionY()->GetYaxis()->SetTitle("events");
+    rho_masses->ProjectionY()->Draw();
+    //TLine line4 = TLine(rho_mass, 0, rho_mass, 1.05*rho_masses->ProjectionY()->GetMaximum());
+    //line4.DrawClone();
 
 
     const float rho_fit_min_2 = 606.175;
@@ -339,13 +376,23 @@ void ntuple_analysis_background_fit() {
 
     TString true_rho_string_2 = get_par(rho_fit_2, 0)+"*TMath::Gaus(x,"+get_par(rho_fit_2, 1)+","+get_par(rho_fit_2, 2)+")";
     TF1 true_rho_2("true_rho_2", true_rho_string_2, 200, 1400);
-    true_rho_2.SetLineColor(3);
+    true_rho_2.SetLineColor(4);
     true_rho_2.DrawCopy("Same");
 
 
     TString true_k_string_2 = get_par(k_fit_2, 0)+"*TMath::Gaus(x,"+get_par(k_fit_2, 1)+","+get_par(k_fit_2, 2)+")";
     TF1 true_k_2("true_k_2", true_k_string_2, 200, 1400);
-    true_k_2.SetLineColor(4);
+    true_k_2.SetLineColor(3);
     true_k_2.DrawCopy("Same");
+
+
+    TLatex text5(750,800,"\\rho");
+    text5.DrawClone();
+
+    TLatex text6(500,950,"K^{*}");
+    text6.DrawClone();
+
+
+    projections->Print("projections.pdf","RECREATE");
     
 }
