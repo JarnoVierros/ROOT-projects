@@ -1,5 +1,5 @@
 
-string create_interval(int start, int stop) {
+string create_interval(float start, float stop) {
     return "((("+to_string(start)+"<x) ? 1 : 0) - (("+to_string(stop)+"<x) ? 1 : 0))";
 }
 
@@ -118,7 +118,7 @@ class Event {
 };
 
 
-void ntuple_analysis_alt() {
+void ntuple_analysis_background_fit() {
 
     const string filename = "TOTEM43.root"; //"TOTEM43.root", kpkm.roo, 110000.root
     const float muon_mass = 139.57039;
@@ -221,17 +221,17 @@ void ntuple_analysis_alt() {
     //TLine line3 = TLine(rho_mass, 0, rho_mass, 1.05*rho_masses->ProjectionX()->GetMaximum());
     //line3.DrawClone();
 
-    const int rho_fit_min = 650;
-    const int rho_fit_max = 850;
-    const int k_fit_min = 470;
-    const int k_fit_max = 530;
+    const float rho_fit_min = 629.; //629.535 //650
+    const float rho_fit_max = 850.;
+    const float k_fit_min = 470.;
+    const float k_fit_max = 530.;
 
-    TString linear_bckg_string = "("+create_interval(k_fit_max, rho_fit_min)+"+"+create_interval(0, k_fit_min)+")*([0]+[1]*x)";
+    TString linear_bckg_string = "("+create_interval(k_fit_max, rho_fit_min)+"+"+create_interval(0., k_fit_min)+")*([0]+[1]*x)";
     cout << linear_bckg_string << endl;
     TF1 linear_bckg("linear_bckg", linear_bckg_string, 200, 1400);
     linear_bckg.SetParameters(1, 1);
 
-    rho_masses->ProjectionX()->Fit(&linear_bckg, "","",400,700);
+    rho_masses->ProjectionX()->Fit(&linear_bckg, "","",400,629.535);
 
 
     TString k_fit_string = get_par(linear_bckg, 0)+"+"+get_par(linear_bckg, 1)+"*x+[0]*TMath::Gaus(x,[1],[2])";
@@ -239,22 +239,23 @@ void ntuple_analysis_alt() {
     TF1 k_fit("k_fit", k_fit_string, 200, 1400);
     k_fit.SetParameters(8.19813e+02, 4.97588e+02, 1.19288e+01);
 
-    rho_masses->ProjectionX()->Fit(&k_fit, "","",425,575);
+    rho_masses->ProjectionX()->Fit(&k_fit, "","",k_fit_min,k_fit_max);
 
     //k_fit.DrawCopy("Same");
 
 
-    TF1 gauss_bckg("gauss_bckg", "[0]*TMath::Gaus(x,[1],[2])", 200, 1400);
-    gauss_bckg.SetParameters(2.15843e+05, 600, 1.25071e+03);
+    TF1 gauss_bckg("gauss_bckg", "[0]*TMath::Gaus(x,[1],[2])", rho_fit_min, 1400);
+    gauss_bckg.SetParameters(7.81456e+05, -4.18595e+03, 1.37289e+03);
     rho_masses->ProjectionX()->Fit(&gauss_bckg, "","",900,1400);
 
+    //gauss_bckg.SetLineColor(1);
     //gauss_bckg.DrawCopy("Same");
 
 
-    TString rho_fit_string = create_interval(400, 629.535)+"*("+get_par(linear_bckg, 0)+"+"+get_par(linear_bckg, 1)+"*x)+"
+    TString rho_fit_string = create_interval(400., rho_fit_min)+"*("+get_par(linear_bckg, 0)+"+"+get_par(linear_bckg, 1)+"*x)+"
     +get_par(k_fit, 0)+"*TMath::Gaus(x,"+get_par(k_fit, 1)+","+get_par(k_fit, 2)+")+"
-    +create_interval(629.535, 1400)+"*("+get_par(gauss_bckg, 0)+"*TMath::Gaus(x,"+get_par(gauss_bckg, 1)+","+get_par(gauss_bckg, 2)
-    +"))+"+create_interval(629.535, 1400)+"*[0]*TMath::Gaus(x,[1],[2])";
+    +create_interval(rho_fit_min, 1400.)+"*("+get_par(gauss_bckg, 0)+"*TMath::Gaus(x,"+get_par(gauss_bckg, 1)+","+get_par(gauss_bckg, 2)
+    +"))+"+create_interval(200., 1400.)+"*[0]*TMath::Gaus(x,[1],[2])";
     cout << rho_fit_string << endl;
 
     TF1 rho_fit("rho_fit", rho_fit_string, 200, 1400);
@@ -263,15 +264,20 @@ void ntuple_analysis_alt() {
     rho_masses->ProjectionX()->Fit(&rho_fit, "","",rho_fit_min,rho_fit_max);
 
     rho_fit.DrawCopy("Same");
+    
 
 
     TString true_rho_string = get_par(rho_fit, 0)+"*TMath::Gaus(x,"+get_par(rho_fit, 1)+","+get_par(rho_fit, 2)+")";
     TF1 true_rho("true_rho", true_rho_string, 200, 1400);
+    true_rho.SetLineColor(3);
     true_rho.DrawCopy("Same");
+    
+    
 
 
     TString true_k_string = get_par(k_fit, 0)+"*TMath::Gaus(x,"+get_par(k_fit, 1)+","+get_par(k_fit, 2)+")";
     TF1 true_k("true_k", true_k_string, 200, 1400);
+    true_k.SetLineColor(4);
     true_k.DrawCopy("Same");
 
 
@@ -285,17 +291,17 @@ void ntuple_analysis_alt() {
     ///////////////////////////////////////////////////////
 
 
-    const int rho_fit_min_2 = 650;
-    const int rho_fit_max_2 = 850;
-    const int k_fit_min_2 = 470;
-    const int k_fit_max_2 = 530;
+    const float rho_fit_min_2 = 606.175;
+    const float rho_fit_max_2 = 850.;
+    const float k_fit_min_2 = 470.;
+    const float k_fit_max_2 = 530.;
 
-    TString linear_bckg_string_2 = "("+create_interval(k_fit_max_2, rho_fit_min_2)+"+"+create_interval(0, k_fit_min_2)+")*([0]+[1]*x)";
+    TString linear_bckg_string_2 = "("+create_interval(k_fit_max_2, rho_fit_min_2)+"+"+create_interval(0., k_fit_min_2)+")*([0]+[1]*x)";
     cout << linear_bckg_string_2 << endl;
     TF1 linear_bckg_2("linear_bckg_2", linear_bckg_string_2, 200, 1400);
     linear_bckg_2.SetParameters(1, 1);
 
-    rho_masses->ProjectionY()->Fit(&linear_bckg_2, "","",400,700);
+    rho_masses->ProjectionY()->Fit(&linear_bckg_2, "","",400,rho_fit_min_2);
 
 
     TString k_fit_string_2 = get_par(linear_bckg_2, 0)+"+"+get_par(linear_bckg_2, 1)+"*x+[0]*TMath::Gaus(x,[1],[2])";
@@ -308,17 +314,18 @@ void ntuple_analysis_alt() {
     //k_fit.DrawCopy("Same");
 
 
-    TF1 gauss_bckg_2("gauss_bckg_2", "[0]*TMath::Gaus(x,[1],[2])", 200, 1400);
-    gauss_bckg_2.SetParameters(2.15843e+05, 600, 1.25071e+03);
+    TF1 gauss_bckg_2("gauss_bckg_2", "[0]*TMath::Gaus(x,[1],[2])", rho_fit_min_2, 1400);
+    gauss_bckg_2.SetParameters(1.22029e+07, -5.53468e+03, 1.45704e+03);
     rho_masses->ProjectionY()->Fit(&gauss_bckg_2, "","",900,1400);
 
-    //gauss_bckg.DrawCopy("Same");
+    //gauss_bckg_2.SetLineColor(1);
+    //gauss_bckg_2.DrawCopy("Same");
 
 
-    TString rho_fit_string_2 = create_interval(400, 629.535)+"*("+get_par(linear_bckg_2, 0)+"+"+get_par(linear_bckg_2, 1)+"*x)+"
+    TString rho_fit_string_2 = create_interval(400., rho_fit_min_2)+"*("+get_par(linear_bckg_2, 0)+"+"+get_par(linear_bckg_2, 1)+"*x)+"
     +get_par(k_fit_2, 0)+"*TMath::Gaus(x,"+get_par(k_fit_2, 1)+","+get_par(k_fit_2, 2)+")+"
-    +create_interval(629.535, 1400)+"*("+get_par(gauss_bckg_2, 0)+"*TMath::Gaus(x,"+get_par(gauss_bckg_2, 1)+","+get_par(gauss_bckg_2, 2)+"))+"
-    +create_interval(629.535, 1400)+"*[0]*TMath::Gaus(x,[1],[2])";
+    +create_interval(rho_fit_min_2, 1400.)+"*("+get_par(gauss_bckg_2, 0)+"*TMath::Gaus(x,"+get_par(gauss_bckg_2, 1)+","+get_par(gauss_bckg_2, 2)+"))+"
+    +create_interval(rho_fit_min_2, 1400.)+"*[0]*TMath::Gaus(x,[1],[2])";
     cout << rho_fit_string_2 << endl;
 
     TF1 rho_fit_2("rho_fit_2", rho_fit_string_2, 200, 1400);
@@ -329,13 +336,16 @@ void ntuple_analysis_alt() {
     rho_fit_2.DrawCopy("Same");
 
 
+
     TString true_rho_string_2 = get_par(rho_fit_2, 0)+"*TMath::Gaus(x,"+get_par(rho_fit_2, 1)+","+get_par(rho_fit_2, 2)+")";
     TF1 true_rho_2("true_rho_2", true_rho_string_2, 200, 1400);
+    true_rho_2.SetLineColor(3);
     true_rho_2.DrawCopy("Same");
 
 
     TString true_k_string_2 = get_par(k_fit_2, 0)+"*TMath::Gaus(x,"+get_par(k_fit_2, 1)+","+get_par(k_fit_2, 2)+")";
     TF1 true_k_2("true_k_2", true_k_string_2, 200, 1400);
+    true_k_2.SetLineColor(4);
     true_k_2.DrawCopy("Same");
     
 }
