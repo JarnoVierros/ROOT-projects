@@ -151,7 +151,7 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
     f = chisq;
     cout << "chisq: " << chisq << endl << endl;
 }
-
+//6.5
 void ntuple_analysis_slice() {
 
     const string filename = "TOTEM43.root"; //"TOTEM43.root", kpkm.roo, 110000.root
@@ -319,7 +319,7 @@ void ntuple_analysis_slice() {
 
 
     //rho_masses->ProjectionX("X_projection",1,200,"[-k1_cut, -k2_cut]")->Draw();
-    projection = rho_masses->ProjectionX("X_projection",1,200,"[-k1_cut, -k2_cut]");
+    projection = rho_masses->ProjectionX("X_projection",(600-200)/6,(1000-200)/6,"[-k1_cut, -k2_cut]");
     projection->Draw();
 
     TMinuit *gMinuit = new TMinuit(3);

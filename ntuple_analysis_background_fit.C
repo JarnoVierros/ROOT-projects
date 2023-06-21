@@ -233,7 +233,7 @@ void ntuple_analysis_background_fit() {
     arrow2.SetLineWidth(3);
     arrow2.DrawClone();
 
-    TLatex text2(300,300,"K^{*}");
+    TLatex text2(290,300,"K^{0}_{s}");
     text2.DrawClone();
 
 
@@ -312,7 +312,7 @@ void ntuple_analysis_background_fit() {
     TLatex text3(750,800,"\\rho");
     text3.DrawClone();
 
-    TLatex text4(500,950,"K^{*}");
+    TLatex text4(500,950,"K^{0}_{s}");
     text4.DrawClone();
 
 
@@ -389,7 +389,7 @@ void ntuple_analysis_background_fit() {
     TLatex text5(750,800,"\\rho");
     text5.DrawClone();
 
-    TLatex text6(500,950,"K^{*}");
+    TLatex text6(500,950,"K^{0}_{s}");
     text6.DrawClone();
 
 
