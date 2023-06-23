@@ -166,6 +166,26 @@ class Event {
             }
             return total_dz;
         }
+
+        float get_dxy_variance() {
+            float average_dxy = get_total_dxy()/particle_count;
+            float variance = 0;
+            for (int i=0; i<particle_count; ++i) {
+                Particle* current_particle = *(particles+i);
+                variance += pow(average_dxy-current_particle->dxy, 2);
+            }
+            return variance;
+        }
+
+        float get_dz_variance() {
+            float average_dz = get_total_dz()/particle_count;
+            float variance = 0;
+            for (int i=0; i<particle_count; ++i) {
+                Particle* current_particle = *(particles+i);
+                variance += pow(average_dz-current_particle->dz, 2);
+            }
+            return variance;
+        }
 };
 
 Double_t func(float x,Double_t *par){
@@ -203,12 +223,16 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
 
 void ntuple_analysis_momentum_conservation_v2() {
 
-    const string filename = "TOTEM43.root"; //"TOTEM43.root", kpkm.roo, 110000.root
-    const float muon_mass = 139.57039;
+    const string filename = "TOTEM43.root"; //"TOTEM43.root", kpkm.roo, 110000.root, rho.root, MinBias.root
+    const bool monte_carlo = false;
+    const float pion_mass = 139.57039;
     const float rho_mass = 730; //770
 
-    const float allowed_px_difference = 30;
-    const float allowed_py_difference = 30;
+    const float allowed_px_difference = 150;
+    const float allowed_py_difference = 150;
+    const float allowed_dxy_variance = 0.1;
+    const float allowed_dz_variance = 0.1;
+    const float allowed_rho_2_mass_difference = 100;
 
     TFile *file = TFile::Open(filename.c_str());
     TTree* tree = (TTree*)file->Get("tree");
@@ -220,9 +244,16 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     auto prot_px_vs_ref_px = new TH2F("prot_px_vs_ref_px", "x-momentum of protons and refractive system;prot_px/MeV;ref_px/MeV",200,-2000,2000,200,-2000,2000);
     auto prot_py_vs_ref_py = new TH2F("prot_py_vs_ref_py", "y-momentum of protons and refractive system;prot_py/MeV;ref_py/MeV",200,-2000,2000,200,-2000,2000);
+    
 
-    auto total_dxy_vs_rho_m = new TH2F("total_dxy_vs_rho_m", "total dxy and rho mass;total dxy;rho mass/MeV",200,-5,5,200,200,1400);
-    auto total_dz_vs_rho_m = new TH2F("total_dz_vs_rho_m", "total dz and rho mass;total dz;rho mass/MeV",200,-5,5,200,200,1400);
+    //auto total_dxy_vs_rho_m = new TH2F("total_dxy_vs_rho_m", "total dxy and rho mass;total dxy;rho mass/MeV",200,-5,5,200,200,1400);
+    //auto total_dz_vs_rho_m = new TH2F("total_dz_vs_rho_m", "total dz and rho mass;total dz;rho mass/MeV",200,-5,5,200,200,1400);
+
+    auto dxy_variance_vs_rho_m1 = new TH2F("dxy_variance_vs_rho_m1", "dxy variance and rho1 mass;dxy variance;rho1 mass/MeV",200,0,5,200,200,1400);
+    auto dz_variance_vs_rho_m1 = new TH2F("dz_variance_vs_rho_m1", "dz variance and rho1 mass;dz variance;rho1 mass/MeV",200,0,5,200,200,1400);
+
+    auto dxy_variance_vs_rho_m2 = new TH2F("dxy_variance_vs_rho_m2", "dxy variance and rho2 mass;dxy variance;rho2 mass/MeV",200,0,5,200,200,1400);
+    auto dz_variance_vs_rho_m2 = new TH2F("dz_variance_vs_rho_m2", "dz variance and rho2 mass;dz variance;rho2 mass/MeV",200,0,5,200,200,1400);
 
     TTreeReaderArray<Float_t> trk_p(Reader, "trk_p");
     TTreeReaderArray<Float_t> trk_pt(Reader, "trk_pt");
@@ -255,7 +286,7 @@ void ntuple_analysis_momentum_conservation_v2() {
             particle->charge = trk_q[i];
             particle->eta = trk_eta[i];
             particle->phi = trk_phi[i];
-            particle->m = muon_mass;
+            particle->m = pion_mass;
             particle->calculate_3d_momentum();
             particle->calculate_energy();
             particles[i] = particle;
@@ -275,10 +306,18 @@ void ntuple_analysis_momentum_conservation_v2() {
 
         Event current_event(particles, 4);
 
-        current_event.ThxR = -(*ThxR);
-        current_event.ThyR = *ThyR;
-        current_event.ThxL = -(*ThxL);
-        current_event.ThyL = *ThyL;
+        if (monte_carlo) {
+            current_event.ThxR = -(*ThxR);
+            current_event.ThyR = -(*ThyR);
+            current_event.ThxL = (*ThxL);
+            current_event.ThyL = (*ThyL);
+        } else {
+            current_event.ThxR = -(*ThxR);
+            current_event.ThyR = (*ThyR);
+            current_event.ThxL = -(*ThxL);
+            current_event.ThyL = (*ThyL);
+        }
+        
 
         float total_charge = current_event.calculate_total_charge();
         if (total_charge != 0) {
@@ -314,7 +353,6 @@ void ntuple_analysis_momentum_conservation_v2() {
         Particle* rhos[2][2];
         current_event.reconstruct_2_rhos(rhos);
 
-
         prot_px_vs_ref_px->Fill(current_event.PR_p[0]+current_event.PL_p[0], current_event.ref_p[0]);
         prot_py_vs_ref_py->Fill(current_event.PR_p[1]+current_event.PL_p[1], current_event.ref_p[1]);
         
@@ -327,15 +365,27 @@ void ntuple_analysis_momentum_conservation_v2() {
                 //cout << "m: " << rho->m << endl;
             }
             rho_masses_raw->Fill(raw_masses[0], raw_masses[1]);
-            total_dxy_vs_rho_m->Fill(current_event.get_total_dxy(), raw_masses[0]);
-            total_dz_vs_rho_m->Fill(current_event.get_total_dz(), raw_masses[0]);
-        }
 
+            dxy_variance_vs_rho_m1->Fill(current_event.get_dxy_variance(), raw_masses[0]);
+            dz_variance_vs_rho_m1->Fill(current_event.get_dz_variance(), raw_masses[0]);
+
+            dxy_variance_vs_rho_m2->Fill(current_event.get_dxy_variance(), raw_masses[1]);
+            dz_variance_vs_rho_m2->Fill(current_event.get_dz_variance(), raw_masses[1]);
+        }
+        
         if (allowed_px_difference < abs(abs(current_event.PR_p[0]+current_event.PL_p[0]) - abs(current_event.ref_p[0]))) {
             continue;
         }
 
         if (allowed_py_difference < abs(abs(current_event.PR_p[1]+current_event.PL_p[1]) - abs(current_event.ref_p[1]))) {
+            continue;
+        }
+        
+        if (current_event.get_dxy_variance()>allowed_dxy_variance) {
+            continue;
+        }
+
+        if (current_event.get_dz_variance()>allowed_dz_variance) {
             continue;
         }
 
@@ -352,7 +402,7 @@ void ntuple_analysis_momentum_conservation_v2() {
         //cout << endl;
         //cout << endl;
 
-    }
+    } 
 
 
     auto px_comparison = new TCanvas("Canvas0","Canvas0");
@@ -422,18 +472,24 @@ void ntuple_analysis_momentum_conservation_v2() {
     auto projections = new TCanvas("Canvas5","Canvas5");
     
 
-    projection = rho_masses->ProjectionX("X_projection");
-    //projection = rho_masses->ProjectionX("X_projection", (rho_mass-100-200)/6, (rho_mass+100-200)/6);
+    //projection = rho_masses->ProjectionX("X_projection");
+    projection = rho_masses->ProjectionX("X_projection", (rho_mass-allowed_rho_2_mass_difference-200)/6, (rho_mass+allowed_rho_2_mass_difference-200)/6);
     projection->Draw();
 
 
     
 
-    auto dxy_comparison = new TCanvas("Canvas6","Canvas6");
-    total_dxy_vs_rho_m->Draw("Colz");
+    auto dxy_comparison_1 = new TCanvas("Canvas6","Canvas6");
+    dxy_variance_vs_rho_m1->Draw("Colz");
 
-    auto dz_comparison = new TCanvas("Canvas7","Canvas7");
-    total_dz_vs_rho_m->Draw("Colz");
+    auto dz_comparison_1 = new TCanvas("Canvas7","Canvas7");
+    dz_variance_vs_rho_m1->Draw("Colz");
+
+    auto dxy_comparison_2 = new TCanvas("Canvas8","Canvas8");
+    dxy_variance_vs_rho_m2->Draw("Colz");
+
+    auto dz_comparison_2 = new TCanvas("Canvas9","Canvas9");
+    dz_variance_vs_rho_m2->Draw("Colz");
 
     /*
     TMinuit *gMinuit = new TMinuit(3);
