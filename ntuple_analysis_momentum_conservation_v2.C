@@ -1,6 +1,4 @@
 
-const float peak = 780;//722.311
-
 string create_interval(float start, float stop) {
     return "((("+to_string(start)+"<x) ? 1 : 0) - (("+to_string(stop)+"<x) ? 1 : 0))";
 }
@@ -15,7 +13,7 @@ string get_par(TF1 fit, int par) {
 
 class Particle {
     public:
-        //pion=1, rho=2
+        //unknown=0, pion=1, rho=2, glueball=3
         int type;
         float p;
         float p_t;
@@ -89,7 +87,7 @@ class Event {
             return total_charge;
         }
 
-        void reconstruct_2_rhos(Particle* rhos[2][2]) {
+        void reconstruct_2_from_4(Particle* origins[2][2], int type) {
             if (particle_count != 4) {
                 throw invalid_argument("invalid number of particles");
             }
@@ -112,26 +110,26 @@ class Event {
                 }
             }
 
-            Particle* rho1_c1 = reconstruct_rho(positives[0], negatives[0]);
-            rhos[0][0] = rho1_c1;
-            Particle* rho2_c1 = reconstruct_rho(positives[1], negatives[1]);
-            rhos[0][1] = rho2_c1;
+            Particle* origin1_c1 = reconstruct_1_from_2(positives[0], negatives[0], type);
+            origins[0][0] = origin1_c1;
+            Particle* origin2_c1 = reconstruct_1_from_2(positives[1], negatives[1], type);
+            origins[0][1] = origin2_c1;
             
-            Particle* rho1_c2 = reconstruct_rho(positives[0], negatives[1]);
-            rhos[1][0] = rho1_c2;
-            Particle* rho2_c2 = reconstruct_rho(positives[1], negatives[0]);
-            rhos[1][1] = rho2_c2;
+            Particle* origin1_c2 = reconstruct_1_from_2(positives[0], negatives[1], type);
+            origins[1][0] = origin1_c2;
+            Particle* origin2_c2 = reconstruct_1_from_2(positives[1], negatives[0], type);
+            origins[1][1] = origin2_c2;
         }
     
-        Particle* reconstruct_rho(Particle* positive, Particle* negative) {
-            Particle* rho = new Particle(2);
-            rho->E = positive->E + negative->E;
-            rho->p_x = positive->p_x + negative->p_x;
-            rho->p_y = positive->p_y + negative->p_y;
-            rho->p_z = positive->p_z + negative->p_z;
-            rho->calculate_total_momentum();
-            rho->calculate_mass();
-            return rho;
+        Particle* reconstruct_1_from_2(Particle* particle1, Particle* particle2, int type) {
+            Particle* origin = new Particle(type);
+            origin->E = particle1->E + particle2->E;
+            origin->p_x = particle1->p_x + particle2->p_x;
+            origin->p_y = particle1->p_y + particle2->p_y;
+            origin->p_z = particle1->p_z + particle2->p_z;
+            origin->calculate_total_momentum();
+            origin->calculate_mass();
+            return origin;
         }
 
         void calculate_proton_momentums() {
@@ -218,7 +216,7 @@ Double_t func_BreitWigner(float x,Double_t *par){
 }
 
 Double_t func_Landau(float x,Double_t *par){
-    Double_t value = par[0]*TMath::Landau(x,par[1],par[2]);
+    Double_t value = par[3] + par[0]*TMath::Landau(x,par[1],par[2]);
     return value;
 }
 
@@ -226,6 +224,8 @@ Double_t func_Landau(float x,Double_t *par){
 static TH1D* projection;
 static TH1D* raw_projection;
 
+static float fcn_gaussian_min;
+static float fcn_gaussian_max;
 void fcn_gaussian(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
     const Int_t nbins = 200;
     Int_t i;
@@ -237,7 +237,7 @@ void fcn_gaussian(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t 
         if (projection->GetBinContent(i)<1) {
             continue;
         } 
-        delta  = enforce_interval(projection->GetBinCenter(i), peak-100, peak+100)*(projection->GetBinContent(i)-func_gaussian(projection->GetBinCenter(i),par))/projection->GetBinError(i);
+        delta  = enforce_interval(projection->GetBinCenter(i), fcn_gaussian_min, fcn_gaussian_max)*(projection->GetBinContent(i)-func_gaussian(projection->GetBinCenter(i),par))/projection->GetBinError(i);
         //cout << "delta " << i << ": " << delta << endl;
         chisq += delta*delta;
     }
@@ -245,6 +245,8 @@ void fcn_gaussian(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t 
     //cout << "chisq: " << chisq << endl << endl;
 }
 
+static float raw_fcn_gaussian_min;
+static float raw_fcn_gaussian_max;
 void raw_fcn_gaussian(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
     const Int_t nbins = 200;
     Int_t i;
@@ -256,7 +258,7 @@ void raw_fcn_gaussian(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, In
         if (raw_projection->GetBinContent(i)<1) {
             continue;
         } 
-        delta  = enforce_interval(raw_projection->GetBinCenter(i), peak-100, peak+100)*(raw_projection->GetBinContent(i)-func_gaussian(raw_projection->GetBinCenter(i),par))/raw_projection->GetBinError(i);
+        delta  = enforce_interval(raw_projection->GetBinCenter(i), raw_fcn_gaussian_min, raw_fcn_gaussian_max)*(raw_projection->GetBinContent(i)-func_gaussian(raw_projection->GetBinCenter(i),par))/raw_projection->GetBinError(i);
         //cout << "delta " << i << ": " << delta << endl;
         chisq += delta*delta;
     }
@@ -264,6 +266,8 @@ void raw_fcn_gaussian(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, In
     //cout << "chisq: " << chisq << endl << endl;
 }
 
+static float fcn_BreitWigner_min;
+static float fcn_BreitWigner_max;
 void fcn_BreitWigner(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
     const Int_t nbins = 200;
     Int_t i;
@@ -275,7 +279,7 @@ void fcn_BreitWigner(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int
         if (projection->GetBinContent(i)<1) {
             continue;
         } 
-        delta  = enforce_interval(projection->GetBinCenter(i), peak-100, peak+100)*(projection->GetBinContent(i)-func_BreitWigner(projection->GetBinCenter(i),par))/projection->GetBinError(i);
+        delta  = enforce_interval(projection->GetBinCenter(i), fcn_BreitWigner_min, fcn_BreitWigner_max)*(projection->GetBinContent(i)-func_BreitWigner(projection->GetBinCenter(i),par))/projection->GetBinError(i);
         //cout << "delta " << i << ": " << delta << endl;
         chisq += delta*delta;
     }
@@ -283,6 +287,8 @@ void fcn_BreitWigner(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int
     //cout << "chisq: " << chisq << endl << endl;
 }
 
+static float fcn_Landau_min;
+static float fcn_Landau_max;
 void fcn_Landau(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
     const Int_t nbins = 200;
     Int_t i;
@@ -294,8 +300,7 @@ void fcn_Landau(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t if
         if (projection->GetBinContent(i)<1) {
             continue;
         } 
-        delta  = enforce_interval(projection->GetBinCenter(i), peak-100, 1400)*(projection->GetBinContent(i)-func_Landau(projection->GetBinCenter(i),par))/(projection->GetBinError(i));
-        //cout << "delta " << i << ": " << delta << endl;
+        delta  = enforce_interval(projection->GetBinCenter(i), fcn_Landau_min, fcn_Landau_max)*(projection->GetBinContent(i)-func_Landau(projection->GetBinCenter(i),par))/(projection->GetBinError(i));
         chisq += delta*delta;
     }
     f = chisq;
@@ -304,15 +309,16 @@ void fcn_Landau(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t if
 
 void ntuple_analysis_momentum_conservation_v2() {
 
-    const string filename = "./ntuples/rho.root"; //"TOTEM43.root", kpkm.roo, 110000.root, rho.root, MinBias.root
-    const bool monte_carlo = true;
+    const string filename = "./ntuples/TOTEM43.root"; //"TOTEM43.root", kpkm.roo, 110000.root, rho.root, MinBias.root
+    const bool monte_carlo = false;
+
     const float pion_mass = 139.57039;
     const float rho_mass = 730; //770
 
     const float allowed_px_difference = 150;
     const float allowed_py_difference = 150;
-    const float allowed_dxy_variance = 0.1;
-    const float allowed_dz_variance = 0.6;
+    const float allowed_squared_total_dxy = 0.15;
+    const float allowed_squared_total_dz = 0.7;
     const float allowed_rho_2_mass_difference = 150;
 
     TFile *file = TFile::Open(filename.c_str());
@@ -320,8 +326,8 @@ void ntuple_analysis_momentum_conservation_v2() {
     TTreeReader Reader(tree);
     //TTreeReader Reader("tree", file);
 
-    auto rho_masses = new TH2F("rho_masses", "Masses of potential rho particles;m1/MeV;m2/MeV",200,200,1400,200,200,1400);
-    auto rho_masses_raw = new TH2F("rho_masses_raw", "Masses of raw potential rho particles;m1/MeV;m2/MeV",200,200,1400,200,200,1400);
+    auto rho_masses = new TH2F("rho_masses", "Masses of potential rho particles with impact parameter cuts;m1/MeV;m2/MeV",200,200,1400,200,200,1400);
+    auto rho_masses_raw = new TH2F("rho_masses_raw", "Masses of potential rho particles;m1/MeV;m2/MeV",200,200,1400,200,200,1400);
 
     auto prot_px_vs_ref_px = new TH2F("prot_px_vs_ref_px", "x-momentum of protons and refractive system;prot_px/MeV;ref_px/MeV",200,-2000,2000,200,-2000,2000);
     auto prot_py_vs_ref_py = new TH2F("prot_py_vs_ref_py", "y-momentum of protons and refractive system;prot_py/MeV;ref_py/MeV",200,-2000,2000,200,-2000,2000);
@@ -335,6 +341,12 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     auto total_dxy_squared_vs_rho_m2 = new TH2F("total_dxy_squared_vs_rho_m2", "total dxy^2 and rho2 mass;total dxy^2;rho2 mass/MeV",200,0,5,200,200,1400);
     auto total_dz_squared_vs_rho_m2 = new TH2F("total_dz_squared_vs_rho_m2", "total dz^2 and rho2 mass;total dz^2;rho2 mass/MeV",200,0,5,200,200,1400);
+
+    auto raw_origin_mass = new TH1F("raw_origin_mass", "Mass of the four track origin without cuts;mass/MeV",200,500,3000);
+    auto origin_mass = new TH1F("origin_mass", "Mass of the four track origin with cuts;mass/MeV",200,500,3000);
+
+    auto raw_origin_m_vs_rho1_m = new TH2F("raw_origin_m_vs_rho1_m", "Mass of the four track origin compared with mass of first rho particle without cuts;origin mass/MeV;rho1 mass/MeV",200,500,3000,200,200,1400);
+    auto origin_m_vs_rho1_m = new TH2F("origin_m_vs_rho1_m", "Mass of the four track origin compared with mass of first rho particle with cuts;origin mass/MeV;rho1 mass/MeV",200,500,3000,200,200,1400);
 
     TTreeReaderArray<Float_t> trk_p(Reader, "trk_p");
     TTreeReaderArray<Float_t> trk_pt(Reader, "trk_pt");
@@ -409,30 +421,17 @@ void ntuple_analysis_momentum_conservation_v2() {
         current_event.calculate_momentum_of_refractive_system();
         current_event.calculate_proton_momentums();
 
-        /*
-        for (int i=0; i<3; ++i) {
-            cout << current_event.ref_p[i] << endl;
-        }
-
-        cout << endl;
-
-        cout << current_event.ThxR << endl;
-        cout << current_event.ThyR << endl;
-        for (int i=0; i<3; ++i) {
-            cout << current_event.PR_p[i] << endl;
-        }
-
-        cout << endl;
-
-        cout << current_event.ThxL << endl;
-        cout << current_event.ThyL << endl;
-        for (int i=0; i<3; ++i) {
-            cout << current_event.PL_p[i] << endl;
-        }
-        */
-
         Particle* rhos[2][2];
-        current_event.reconstruct_2_rhos(rhos);
+        current_event.reconstruct_2_from_4(rhos, 2);
+
+        Particle* glueball1 = current_event.reconstruct_1_from_2(rhos[0][0], rhos[0][1], 3);
+        Particle* glueball2 = current_event.reconstruct_1_from_2(rhos[1][0], rhos[1][1], 3);
+
+        raw_origin_mass->Fill(glueball1->m);
+        raw_origin_mass->Fill(glueball2->m);
+
+        raw_origin_m_vs_rho1_m->Fill(glueball1->m, rhos[0][0]->m);
+        raw_origin_m_vs_rho1_m->Fill(glueball2->m, rhos[1][0]->m);
 
         prot_px_vs_ref_px->Fill(current_event.PR_p[0]+current_event.PL_p[0], current_event.ref_p[0]);
         prot_py_vs_ref_py->Fill(current_event.PR_p[1]+current_event.PL_p[1], current_event.ref_p[1]);
@@ -443,7 +442,6 @@ void ntuple_analysis_momentum_conservation_v2() {
             for (int j=0; j<2; ++j) {
                 Particle* rho = rhos[i][j];
                 raw_masses[j] = rho->m;
-                //cout << "m: " << rho->m << endl;
             }
             rho_masses_raw->Fill(raw_masses[0], raw_masses[1]);
 
@@ -462,11 +460,11 @@ void ntuple_analysis_momentum_conservation_v2() {
             continue;
         }
         
-        if (current_event.get_dxy_variance()>allowed_dxy_variance) {
+        if (current_event.get_squared_total_dxy()>allowed_squared_total_dxy) {
             continue;
         }
 
-        if (current_event.get_dz_variance()>allowed_dz_variance) {
+        if (current_event.get_squared_total_dz()>allowed_squared_total_dz) {
             continue;
         }
 
@@ -479,6 +477,20 @@ void ntuple_analysis_momentum_conservation_v2() {
             }
             rho_masses->Fill(masses[0], masses[1]);
         }
+
+        //(rho_mass-allowed_rho_2_mass_difference-200)/6, (rho_mass+allowed_rho_2_mass_difference-200)/6)
+
+        if (rho_mass - allowed_rho_2_mass_difference < rhos[0][1]->m && rhos[0][1]->m < rho_mass + allowed_rho_2_mass_difference ) {
+            origin_mass->Fill(glueball1->m);
+            origin_m_vs_rho1_m->Fill(glueball1->m, rhos[0][0]->m);
+        }
+
+        if (rho_mass - allowed_rho_2_mass_difference < rhos[1][1]->m && rhos[1][1]->m < rho_mass + allowed_rho_2_mass_difference ) {
+            origin_mass->Fill(glueball2->m);
+            origin_m_vs_rho1_m->Fill(glueball2->m, rhos[1][0]->m);
+        }
+
+        
 
         //cout << endl;
         //cout << endl;
@@ -516,6 +528,13 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     float results[4];
 
+    //int peak_bin = raw_projection->GetMaximumBin();
+    int peak_bin = 88;
+    float peak = raw_projection->GetBinCenter(peak_bin);
+
+    raw_fcn_gaussian_min = peak - 100;
+    raw_fcn_gaussian_max = peak + 100;
+
     TMinuit *gMinuit0 = new TMinuit(3);
     gMinuit0->SetFCN(raw_fcn_gaussian);
 
@@ -540,7 +559,7 @@ void ntuple_analysis_momentum_conservation_v2() {
     Int_t nvpar,nparx,icstat;
     gMinuit0->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
 
-    Double_t val1,err1,val2,err2,val3,err3;
+    Double_t val1,err1,val2,err2,val3,err3,val4,err4;
     gMinuit0->GetParameter(0, val1, err1);
     gMinuit0->GetParameter(1, val2, err2);
     results[0] = val2;
@@ -566,6 +585,12 @@ void ntuple_analysis_momentum_conservation_v2() {
 
 
 /////////////////////////////////////
+
+    peak_bin = projection->GetMaximumBin();
+    peak = projection->GetBinCenter(peak_bin);
+
+    fcn_gaussian_min = peak - 120;
+    fcn_gaussian_max = peak + 120;
 
     TMinuit *gMinuit1 = new TMinuit(3);
     gMinuit1->SetFCN(fcn_gaussian);
@@ -602,6 +627,9 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     
 ////////////////////////////////////////////
+
+    fcn_BreitWigner_min = peak - 120;
+    fcn_BreitWigner_max = peak + 120;
     
     TMinuit *gMinuit2 = new TMinuit(3);
     gMinuit2->SetFCN(fcn_BreitWigner);
@@ -641,7 +669,10 @@ void ntuple_analysis_momentum_conservation_v2() {
 
 ////////////////////////////////////////////
 
-    TMinuit *gMinuit3 = new TMinuit(3);
+    fcn_Landau_min = peak - 100;
+    fcn_Landau_max = 1400;
+
+    TMinuit *gMinuit3 = new TMinuit(4);
     gMinuit3->SetFCN(fcn_Landau);
 
     Double_t arglist3[10];
@@ -651,11 +682,12 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     gMinuit3 ->mnexcm("SET ERR", arglist3 ,1,ierflg3);
 
-    static Double_t vstart3[4] = {3.28034e+03, 7.12024e+02, 7.82408e+01};
-    static Double_t step3[4] = {1, 0.1, 1};
+    static Double_t vstart3[4] = {3.28034e+03, 7.12024e+02, 7.82408e+01, 0};
+    static Double_t step3[4] = {1, 0.1, 1, 1};
     gMinuit3 ->mnparm(0, "a1", vstart3[0], step3[0], 0,0,ierflg3);
     gMinuit3 ->mnparm(1, "a2", vstart3[1], step3[1], 0,0,ierflg3);
     gMinuit3 ->mnparm(2, "a3", vstart3[2], step3[2], 0,0,ierflg3);
+    gMinuit3 ->mnparm(3, "a4", vstart3[3], step3[3], 0,0,ierflg3);
 
     arglist3[0] = 500;
     arglist3[1] = 1.;
@@ -669,9 +701,10 @@ void ntuple_analysis_momentum_conservation_v2() {
     gMinuit3 ->GetParameter(1, val2, err2);
     results[3] = val2;
     gMinuit3 ->GetParameter(2, val3, err3);
+    gMinuit3 ->GetParameter(3, val4, err4);
 
-    TF1 Landau_fit("Landau_fit", "[0]*TMath::Landau(x,[1],[2])", 200, 1400);
-    Landau_fit.SetParameters(val1, val2, val3);
+    TF1 Landau_fit("Landau_fit", "[3] + [0]*TMath::Landau(x,[1],[2])", 200, 1400);
+    Landau_fit.SetParameters(val1, val2, val3, val4);
     Landau_fit.SetLineColor(4);
     Landau_fit.DrawCopy("Same");
 
@@ -696,6 +729,33 @@ void ntuple_analysis_momentum_conservation_v2() {
     cout << results[1] << endl;
     cout << results[2] << endl;
     cout << results[3] << endl;
+
+
+    auto raw_origin_mass_canvas = new TCanvas("Canvas10","Canvas10");
+    raw_origin_mass->Draw("Colz");
+
+    peak_bin = raw_origin_mass->GetMaximumBin();
+    peak = raw_origin_mass->GetBinCenter(peak_bin);
+    TF1 raw_origin_mass_fit("raw_origin_mass_fit", "[0]*TMath::Gaus(x,[1],[2])", 500, 3000);
+    raw_origin_mass_fit.SetParameters(2000, peak, 100);
+    raw_origin_mass->Fit(&raw_origin_mass_fit, "","",peak-60,peak+100);
+
+    auto origin_mass_canvas = new TCanvas("Canvas11","Canvas11");
+    origin_mass->Draw("Colz");
+
+    peak_bin = origin_mass->GetMaximumBin();
+    peak = origin_mass->GetBinCenter(peak_bin);
+    TF1 origin_mass_fit("origin_mass_fit", "[0]*TMath::Gaus(x,[1],[2])", 500, 3000);
+    origin_mass_fit.SetParameters(2000, peak, 100);
+    origin_mass->Fit(&origin_mass_fit, "","",peak-80,peak+80);
+    
+    auto raw_origin_m_vs_rho1_m_canvas = new TCanvas("Canvas12","Canvas12");
+    raw_origin_m_vs_rho1_m->Draw("Colz");
+
+    auto origin_mass_canvas_canvas = new TCanvas("Canvas13","Canvas13");
+    origin_m_vs_rho1_m->Draw("Colz");
+
+    
 
     /*
     TMinuit *gMinuit = new TMinuit(3);
@@ -745,8 +805,8 @@ void ntuple_analysis_momentum_conservation_v2() {
 
 /*
 new TOTEM43
-710.461
-720.492
-721.018
-713.57
+715.048
+723.566
+729.022
+726.99
 */
