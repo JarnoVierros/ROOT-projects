@@ -1,4 +1,5 @@
 
+#include "CMS_lumi.C"
 
 string create_interval(float start, float stop) {
     return "((("+to_string(start)+"<x) ? 1 : 0) - (("+to_string(stop)+"<x) ? 1 : 0))";
@@ -209,14 +210,17 @@ class Event {
 void refractive_momentum_analysis() {
 
     //const string filenames[4] = {"./ntuples/TOTEM20.root", "./ntuples/TOTEM21.root", "./ntuples/TOTEM22.root", "./ntuples/TOTEM23.root"};
-    const string filenames[4] = {"./ntuples/TOTEM40.root", "./ntuples/TOTEM41.root", "./ntuples/TOTEM42.root", "./ntuples/TOTEM43_old.root"};
-    //const string filenames[1] = {"./ntuples/TOTEM.root"};
+    //const string filenames[4] = {"./ntuples/TOTEM40.root", "./ntuples/TOTEM41.root", "./ntuples/TOTEM42.root", "./ntuples/TOTEM43_old.root"};
+    const string filenames[1] = {"./ntuples/TOTEM43.root"};
     
     const float pion_mass = 139.57039;
 
     auto rho_masses = new TH2F("rho_masses", "Masses of potential rho particles;m1/MeV;m2/MeV",200,200,1400,200,200,1400);
 
-    auto refractive_momentums = new TH2F("refractive_momentums", "x- and y-momentum of the refractive system;px/MeV;py/MeV",200,-1400,1400,200,-1400,1400);
+    auto refractive_momentums = new TH2F("refractive_momentums", ";px (MeV);py (MeV)",200,-1400,1400,200,-1400,1400);
+
+    gStyle->SetOptStat(0);
+    rho_masses->Sumw2();
 
     for (string filename : filenames) {
 
@@ -293,5 +297,7 @@ void refractive_momentum_analysis() {
 
     auto refractive_momentums_canvas = new TCanvas("Canvas3","Canvas3");
     refractive_momentums->Draw("Colz");
+
+    CMS_lumi( refractive_momentums_canvas, 17, 11 );
 
 }

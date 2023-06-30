@@ -1,4 +1,6 @@
 
+#include "CMS_lumi.C"
+
 string create_interval(float start, float stop) {
     return "((("+to_string(start)+"<x) ? 1 : 0) - (("+to_string(stop)+"<x) ? 1 : 0))";
 }
@@ -329,8 +331,8 @@ void ntuple_analysis_momentum_conservation_v2() {
     auto rho_masses = new TH2F("rho_masses", "Masses of potential rho particles with impact parameter cuts;m1/MeV;m2/MeV",200,200,1400,200,200,1400);
     auto rho_masses_raw = new TH2F("rho_masses_raw", "Masses of potential rho particles;m1/MeV;m2/MeV",200,200,1400,200,200,1400);
 
-    auto prot_px_vs_ref_px = new TH2F("prot_px_vs_ref_px", "x-momentum of protons and refractive system;prot_px/MeV;ref_px/MeV",200,-2000,2000,200,-2000,2000);
-    auto prot_py_vs_ref_py = new TH2F("prot_py_vs_ref_py", "y-momentum of protons and refractive system;prot_py/MeV;ref_py/MeV",200,-2000,2000,200,-2000,2000);
+    auto prot_px_vs_ref_px = new TH2F("prot_px_vs_ref_px", ";prot px (MeV);ref px (MeV)",200,-2000,2000,200,-2000,2000);
+    auto prot_py_vs_ref_py = new TH2F("prot_py_vs_ref_py", ";prot py (MeV);ref py (MeV)",200,-2000,2000,200,-2000,2000);
     
 
     //auto total_dxy_vs_rho_m = new TH2F("total_dxy_vs_rho_m", "total dxy and rho mass;total dxy;rho mass/MeV",200,-5,5,200,200,1400);
@@ -347,6 +349,9 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     auto raw_origin_m_vs_rho1_m = new TH2F("raw_origin_m_vs_rho1_m", "Mass of the four track origin compared with mass of first rho particle without cuts;origin mass/MeV;rho1 mass/MeV",200,500,3000,200,200,1400);
     auto origin_m_vs_rho1_m = new TH2F("origin_m_vs_rho1_m", "Mass of the four track origin compared with mass of first rho particle with cuts;origin mass/MeV;rho1 mass/MeV",200,500,3000,200,200,1400);
+
+    gStyle->SetOptStat(0);
+    rho_masses->Sumw2();
 
     TTreeReaderArray<Float_t> trk_p(Reader, "trk_p");
     TTreeReaderArray<Float_t> trk_pt(Reader, "trk_pt");
@@ -500,23 +505,27 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     auto px_comparison = new TCanvas("Canvas0","Canvas0");
     prot_px_vs_ref_px->Draw("Colz");
+    CMS_lumi(px_comparison, 17, 33);
 
+/*
     TLine upper_limit_x = TLine(-1500, 1500+allowed_px_difference, 1500, -1500+allowed_px_difference);
     upper_limit_x.DrawClone();
 
     TLine lower_limit_x = TLine(-1500, 1500-allowed_px_difference, 1500, -1500-allowed_px_difference);
     lower_limit_x.DrawClone();
-
+*/
 
     auto py_comparison = new TCanvas("Canvas1","Canvas1");
     prot_py_vs_ref_py->Draw("Colz");
+    CMS_lumi(py_comparison, 17, 33);
 
+/*
     TLine upper_limit_y = TLine(-1500, 1500+allowed_py_difference, 1500, -1500+allowed_py_difference);
     upper_limit_y.DrawClone();
 
     TLine lower_limit_y = TLine(-1500, 1500-allowed_py_difference, 1500, -1500-allowed_py_difference);
     lower_limit_y.DrawClone();
-
+*/
 
     auto raw = new TCanvas("Canvas2","Canvas2");
     rho_masses_raw->Draw("Colz");
@@ -628,8 +637,8 @@ void ntuple_analysis_momentum_conservation_v2() {
     
 ////////////////////////////////////////////
 
-    fcn_BreitWigner_min = peak - 120;
-    fcn_BreitWigner_max = peak + 120;
+    fcn_BreitWigner_min = peak - 200;
+    fcn_BreitWigner_max = peak + 200;
     
     TMinuit *gMinuit2 = new TMinuit(3);
     gMinuit2->SetFCN(fcn_BreitWigner);
@@ -670,7 +679,7 @@ void ntuple_analysis_momentum_conservation_v2() {
 ////////////////////////////////////////////
 
     fcn_Landau_min = peak - 100;
-    fcn_Landau_max = 1400;
+    fcn_Landau_max = peak + 300;
 
     TMinuit *gMinuit3 = new TMinuit(4);
     gMinuit3->SetFCN(fcn_Landau);
