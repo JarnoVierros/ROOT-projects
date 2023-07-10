@@ -315,13 +315,14 @@ void ntuple_analysis_momentum_conservation_v2() {
     const bool monte_carlo = false;
 
     const float pion_mass = 139.57039;
-    const float rho_mass = 730; //770
+    const float rho_mass = 720; //770
 
     const float allowed_px_difference = 150;
     const float allowed_py_difference = 150;
-    const float allowed_squared_total_dxy = 0.15;
-    const float allowed_squared_total_dz = 0.7;
+    const float allowed_dxy_variance = 0.15;
+    const float allowed_dz_variance = 0.2;
     const float allowed_rho_2_mass_difference = 150;
+    const float allowed_rho_2_mass_difference_supercut = 31;
 
     TFile *file = TFile::Open(filename.c_str());
     TTree* tree = (TTree*)file->Get("tree");
@@ -338,11 +339,11 @@ void ntuple_analysis_momentum_conservation_v2() {
     //auto total_dxy_vs_rho_m = new TH2F("total_dxy_vs_rho_m", "total dxy and rho mass;total dxy;rho mass/MeV",200,-5,5,200,200,1400);
     //auto total_dz_vs_rho_m = new TH2F("total_dz_vs_rho_m", "total dz and rho mass;total dz;rho mass/MeV",200,-5,5,200,200,1400);
 
-    auto total_dxy_squared_vs_rho_m1 = new TH2F("total_dxy_squared_vs_rho_m1", "total dxy^2 and rho1 mass;total dxy^2;rho1 mass/MeV",200,0,5,200,200,1400);
-    auto total_dz_squared_vs_rho_m1 = new TH2F("total_dz_squared_vs_rho_m1", "total dz^2 and rho1 mass;total dz^2;rho1 mass/MeV",200,0,5,200,200,1400);
+    auto dxy_variance_vs_rho_m1 = new TH2F("dxy_variance_vs_rho_m1", "dxy variance and rho1 mass;dxy variance;rho1 mass/MeV",200,0,5,200,200,1400);
+    auto dz_variance_vs_rho_m1 = new TH2F("dz_variance_vs_rho_m1", "dz variance and rho1 mass;dz variance;rho1 mass/MeV",200,0,5,200,200,1400);
 
-    auto total_dxy_squared_vs_rho_m2 = new TH2F("total_dxy_squared_vs_rho_m2", "total dxy^2 and rho2 mass;total dxy^2;rho2 mass/MeV",200,0,5,200,200,1400);
-    auto total_dz_squared_vs_rho_m2 = new TH2F("total_dz_squared_vs_rho_m2", "total dz^2 and rho2 mass;total dz^2;rho2 mass/MeV",200,0,5,200,200,1400);
+    auto dxy_variance_squared_vs_rho_m2 = new TH2F("dxy_variance_squared_vs_rho_m2", "dxy variance and rho2 mass;dxy variance;rho2 mass/MeV",200,0,5,200,200,1400);
+    auto dz_variance_squared_vs_rho_m2 = new TH2F("dz_variance_squared_vs_rho_m2", "dz variance and rho2 mass;dz variance;rho2 mass/MeV",200,0,5,200,200,1400);
 
     auto raw_origin_mass = new TH1F("raw_origin_mass", "Mass of the four track origin without cuts;mass/MeV",200,500,3000);
     auto origin_mass = new TH1F("origin_mass", "Mass of the four track origin with cuts;mass/MeV",200,500,3000);
@@ -350,8 +351,11 @@ void ntuple_analysis_momentum_conservation_v2() {
     auto raw_origin_m_vs_rho1_m = new TH2F("raw_origin_m_vs_rho1_m", "Mass of the four track origin compared with mass of first rho particle without cuts;origin mass/MeV;rho1 mass/MeV",200,500,3000,200,200,1400);
     auto origin_m_vs_rho1_m = new TH2F("origin_m_vs_rho1_m", "Mass of the four track origin compared with mass of first rho particle with cuts;origin mass/MeV;rho1 mass/MeV",200,500,3000,200,200,1400);
 
-    gStyle->SetOptStat(0);
+    auto origin_m_vs_rho1_m_supercut = new TH2F("origin_m_vs_rho1_m_supercut", "Mass of the four track origin compared with mass of first rho particle with supercuts;origin mass/MeV;rho1 mass/MeV",200,1000,3000,200,200,1400);
+
+    //gStyle->SetOptStat(0);
     rho_masses->Sumw2();
+    origin_m_vs_rho1_m_supercut->Sumw2();
 
     TTreeReaderArray<Float_t> trk_p(Reader, "trk_p");
     TTreeReaderArray<Float_t> trk_pt(Reader, "trk_pt");
@@ -450,11 +454,11 @@ void ntuple_analysis_momentum_conservation_v2() {
             }
             rho_masses_raw->Fill(raw_masses[0], raw_masses[1]);
 
-            total_dxy_squared_vs_rho_m1->Fill(current_event.get_squared_total_dxy(), raw_masses[0]);
-            total_dz_squared_vs_rho_m1->Fill(current_event.get_squared_total_dz(), raw_masses[0]);
+            dxy_variance_vs_rho_m1->Fill(current_event.get_dxy_variance(), raw_masses[0]);
+            dz_variance_vs_rho_m1->Fill(current_event.get_dz_variance(), raw_masses[0]);
 
-            total_dxy_squared_vs_rho_m2->Fill(current_event.get_squared_total_dxy(), raw_masses[1]);
-            total_dz_squared_vs_rho_m2->Fill(current_event.get_squared_total_dz(), raw_masses[1]);
+            dxy_variance_squared_vs_rho_m2->Fill(current_event.get_dxy_variance(), raw_masses[1]);
+            dz_variance_squared_vs_rho_m2->Fill(current_event.get_dz_variance(), raw_masses[1]);
         }
         
         if (allowed_px_difference < abs(abs(current_event.PR_p[0]+current_event.PL_p[0]) - abs(current_event.ref_p[0]))) {
@@ -465,11 +469,11 @@ void ntuple_analysis_momentum_conservation_v2() {
             continue;
         }
         
-        if (current_event.get_squared_total_dxy()>allowed_squared_total_dxy) {
+        if (current_event.get_dxy_variance()>allowed_dxy_variance) {
             continue;
         }
 
-        if (current_event.get_squared_total_dz()>allowed_squared_total_dz) {
+        if (current_event.get_dz_variance()>allowed_dz_variance) {
             continue;
         }
 
@@ -483,16 +487,24 @@ void ntuple_analysis_momentum_conservation_v2() {
             rho_masses->Fill(masses[0], masses[1]);
         }
 
-        //(rho_mass-allowed_rho_2_mass_difference-200)/6, (rho_mass+allowed_rho_2_mass_difference-200)/6)
 
-        if (rho_mass - allowed_rho_2_mass_difference < rhos[0][1]->m && rhos[0][1]->m < rho_mass + allowed_rho_2_mass_difference ) {
+        if (rho_mass - allowed_rho_2_mass_difference < rhos[0][1]->m && rhos[0][1]->m < rho_mass + allowed_rho_2_mass_difference) {
             origin_mass->Fill(glueball1->m);
             origin_m_vs_rho1_m->Fill(glueball1->m, rhos[0][0]->m);
         }
 
-        if (rho_mass - allowed_rho_2_mass_difference < rhos[1][1]->m && rhos[1][1]->m < rho_mass + allowed_rho_2_mass_difference ) {
+        if (rho_mass - allowed_rho_2_mass_difference < rhos[1][1]->m && rhos[1][1]->m < rho_mass + allowed_rho_2_mass_difference) {
             origin_mass->Fill(glueball2->m);
             origin_m_vs_rho1_m->Fill(glueball2->m, rhos[1][0]->m);
+        }
+
+
+        if (rho_mass - allowed_rho_2_mass_difference_supercut < rhos[0][1]->m && rhos[0][1]->m < rho_mass + allowed_rho_2_mass_difference_supercut) {
+            origin_m_vs_rho1_m_supercut->Fill(glueball1->m, rhos[0][0]->m);
+        }
+
+        if (rho_mass - allowed_rho_2_mass_difference_supercut < rhos[1][1]->m && rhos[1][1]->m < rho_mass + allowed_rho_2_mass_difference_supercut) {
+            origin_m_vs_rho1_m_supercut->Fill(glueball2->m, rhos[1][0]->m);
         }
 
         
@@ -597,6 +609,8 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     peak_bin = projection->GetMaximumBin();
     peak = projection->GetBinCenter(peak_bin);
+    
+    float dynamic_rho_mass = peak;
 
     fcn_gaussian_min = peak - 120;
     fcn_gaussian_max = peak + 120;
@@ -722,16 +736,16 @@ void ntuple_analysis_momentum_conservation_v2() {
     
 
     auto dxy_comparison_1 = new TCanvas("Canvas6","Canvas6");
-    total_dxy_squared_vs_rho_m1->Draw("Colz");
+    dxy_variance_vs_rho_m1->Draw("Colz");
 
     auto dz_comparison_1 = new TCanvas("Canvas7","Canvas7");
-    total_dz_squared_vs_rho_m1->Draw("Colz");
+    dz_variance_vs_rho_m1->Draw("Colz");
 
     auto dxy_comparison_2 = new TCanvas("Canvas8","Canvas8");
-    total_dxy_squared_vs_rho_m2->Draw("Colz");
+    dxy_variance_squared_vs_rho_m2->Draw("Colz");
 
     auto dz_comparison_2 = new TCanvas("Canvas9","Canvas9");
-    total_dz_squared_vs_rho_m2->Draw("Colz");
+    dz_variance_squared_vs_rho_m2->Draw("Colz");
 
     cout << "RESULTS: " << endl;
     cout << results[0] << endl;
@@ -747,7 +761,7 @@ void ntuple_analysis_momentum_conservation_v2() {
     peak = raw_origin_mass->GetBinCenter(peak_bin);
     TF1 raw_origin_mass_fit("raw_origin_mass_fit", "[0]*TMath::Gaus(x,[1],[2])", 500, 3000);
     raw_origin_mass_fit.SetParameters(2000, peak, 100);
-    raw_origin_mass->Fit(&raw_origin_mass_fit, "","",peak-60,peak+100);
+    //raw_origin_mass->Fit(&raw_origin_mass_fit, "","",peak-60,peak+100);
 
     auto origin_mass_canvas = new TCanvas("Canvas11","Canvas11");
     origin_mass->Draw("Colz");
@@ -756,7 +770,7 @@ void ntuple_analysis_momentum_conservation_v2() {
     peak = origin_mass->GetBinCenter(peak_bin);
     TF1 origin_mass_fit("origin_mass_fit", "[0]*TMath::Gaus(x,[1],[2])", 500, 3000);
     origin_mass_fit.SetParameters(2000, peak, 100);
-    origin_mass->Fit(&origin_mass_fit, "","",peak-80,peak+80);
+    //origin_mass->Fit(&origin_mass_fit, "","",peak-80,peak+80);
     
     auto raw_origin_m_vs_rho1_m_canvas = new TCanvas("Canvas12","Canvas12");
     raw_origin_m_vs_rho1_m->Draw("Colz");
@@ -764,7 +778,22 @@ void ntuple_analysis_momentum_conservation_v2() {
     auto origin_mass_canvas_canvas = new TCanvas("Canvas13","Canvas13");
     origin_m_vs_rho1_m->Draw("Colz");
 
+
+    auto origin_mass_canvas_canvas_supercut = new TCanvas("Canvas14","Canvas14");
+    origin_m_vs_rho1_m_supercut->Draw("Colz");
+
+    TLine line1 = TLine(1000, dynamic_rho_mass-allowed_rho_2_mass_difference_supercut, 3000, dynamic_rho_mass-allowed_rho_2_mass_difference_supercut);
+    line1.DrawClone();
+
+    TLine line2 = TLine(1000, dynamic_rho_mass+allowed_rho_2_mass_difference_supercut, 3000, dynamic_rho_mass+allowed_rho_2_mass_difference_supercut);
+    line2.DrawClone();
+
+    auto origin_projection_supercut_canvas = new TCanvas("Canvas15","Canvas15");
     
+    auto origin_projection_supercut = origin_m_vs_rho1_m_supercut->ProjectionX("origin_m_vs_rho1_m_projection_supercut", (dynamic_rho_mass-allowed_rho_2_mass_difference_supercut-200)/6, (dynamic_rho_mass+allowed_rho_2_mass_difference_supercut-200)/6);
+    origin_projection_supercut->Draw();
+
+
 
     /*
     TMinuit *gMinuit = new TMinuit(3);

@@ -240,9 +240,9 @@ void fcn_gaussian(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t 
         if (projection->GetBinContent(i)<1) {
             continue;
         } 
-        cout << "HERE1" << endl;
-        cout << fcn_gaussian_min << endl;
-        cout << fcn_gaussian_max << endl;
+        //cout << "HERE1" << endl;
+        //cout << fcn_gaussian_min << endl;
+        //cout << fcn_gaussian_max << endl;
         delta  = enforce_interval(projection->GetBinCenter(i), fcn_gaussian_min, fcn_gaussian_max)*(projection->GetBinContent(i)-func_gaussian(projection->GetBinCenter(i),par))/projection->GetBinError(i);
         //cout << "delta " << i << ": " << delta << endl;
         chisq += delta*delta;
@@ -264,9 +264,9 @@ void raw_fcn_gaussian(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, In
         if (raw_projection->GetBinContent(i)<1) {
             continue;
         }
-        cout << "HERE2" << endl;
-        cout << raw_fcn_gaussian_min << endl;
-        cout << raw_fcn_gaussian_max << endl;
+        //cout << "HERE2" << endl;
+        //cout << raw_fcn_gaussian_min << endl;
+        //cout << raw_fcn_gaussian_max << endl;
         delta  = enforce_interval(raw_projection->GetBinCenter(i), raw_fcn_gaussian_min, raw_fcn_gaussian_max)*(raw_projection->GetBinContent(i)-func_gaussian(raw_projection->GetBinCenter(i),par))/raw_projection->GetBinError(i);
         //cout << "delta " << i << ": " << delta << endl;
         chisq += delta*delta;
@@ -323,13 +323,14 @@ void reduced_ntuple_analysis_momentum_conservation_v2() {
     const bool monte_carlo = true;
 
     const float pion_mass = 139.57039;
-    const float rho_mass = 730; //770
+    const float rho_mass = 720; //770
 
     const float allowed_px_difference = 150;
     const float allowed_py_difference = 150;
     const float allowed_squared_total_dxy = 0.15;
-    const float allowed_squared_total_dz = 0.7;
+    const float allowed_squared_total_dz = 0.2;
     const float allowed_rho_2_mass_difference = 150;
+    const float allowed_rho_2_mass_difference_supercut = 31;
 
     TFile *file = TFile::Open(filename.c_str());
     TTree* tree = (TTree*)file->Get("tree");
@@ -344,6 +345,10 @@ void reduced_ntuple_analysis_momentum_conservation_v2() {
 
     auto raw_origin_m_vs_rho1_m = new TH2F("raw_origin_m_vs_rho1_m", "Mass of the four track origin compared with mass of first rho particle without cuts;origin mass/MeV;rho1 mass/MeV",200,500,3000,200,200,1400);
     auto origin_m_vs_rho1_m = new TH2F("origin_m_vs_rho1_m", "Mass of the four track origin compared with mass of first rho particle with cuts;origin mass/MeV;rho1 mass/MeV",200,500,3000,200,200,1400);
+
+    auto origin_m_vs_rho1_m_supercut = new TH2F("origin_m_vs_rho1_m_supercut", "Mass of the four track origin compared with mass of first rho particle with supercuts;origin mass/MeV;rho1 mass/MeV",200,1000,3000,200,200,1400);
+
+    origin_m_vs_rho1_m_supercut->Sumw2();
 
     TTreeReaderArray<Float_t> trk_p(Reader, "trk_p");
     TTreeReaderArray<Float_t> trk_pt(Reader, "trk_pt");
@@ -422,6 +427,15 @@ void reduced_ntuple_analysis_momentum_conservation_v2() {
             origin_m_vs_rho1_m->Fill(glueball2->m, rhos[1][0]->m);
         }
 
+
+        if (rho_mass - allowed_rho_2_mass_difference_supercut < rhos[0][1]->m && rhos[0][1]->m < rho_mass + allowed_rho_2_mass_difference_supercut) {
+            origin_m_vs_rho1_m_supercut->Fill(glueball1->m, rhos[0][0]->m);
+        }
+
+        if (rho_mass - allowed_rho_2_mass_difference_supercut < rhos[1][1]->m && rhos[1][1]->m < rho_mass + allowed_rho_2_mass_difference_supercut) {
+            origin_m_vs_rho1_m_supercut->Fill(glueball2->m, rhos[1][0]->m);
+        }
+
         //cout << endl;
         //cout << endl;
 
@@ -495,6 +509,8 @@ void reduced_ntuple_analysis_momentum_conservation_v2() {
 
     peak_bin = projection->GetMaximumBin();
     peak = projection->GetBinCenter(peak_bin);
+
+    float dynamic_rho_mass = peak;
 
     fcn_gaussian_min = peak - 100;
     fcn_gaussian_max = peak + 100;
@@ -630,7 +646,7 @@ void reduced_ntuple_analysis_momentum_conservation_v2() {
     peak = raw_origin_mass->GetBinCenter(peak_bin);
     TF1 raw_origin_mass_fit("raw_origin_mass_fit", "[0]*TMath::Gaus(x,[1],[2])", 500, 3000);
     raw_origin_mass_fit.SetParameters(2000, peak, 100);
-    raw_origin_mass->Fit(&raw_origin_mass_fit, "","",peak-50,peak+50);
+    //raw_origin_mass->Fit(&raw_origin_mass_fit, "","",peak-50,peak+50);
 
 
     auto origin_mass_canvas = new TCanvas("Canvas11","Canvas11");
@@ -640,13 +656,27 @@ void reduced_ntuple_analysis_momentum_conservation_v2() {
     peak = origin_mass->GetBinCenter(peak_bin);
     TF1 origin_mass_fit("origin_mass_fit", "[0]*TMath::Gaus(x,[1],[2])", 500, 3000);
     origin_mass_fit.SetParameters(2000, peak, 100);
-    origin_mass->Fit(&origin_mass_fit, "","",peak-50,peak+50);
+    //origin_mass->Fit(&origin_mass_fit, "","",peak-50,peak+50);
     
     auto raw_origin_m_vs_rho1_m_canvas = new TCanvas("Canvas12","Canvas12");
     raw_origin_m_vs_rho1_m->Draw("Colz");
 
     auto origin_mass_canvas_canvas = new TCanvas("Canvas13","Canvas13");
     origin_m_vs_rho1_m->Draw("Colz");
+
+    auto origin_mass_canvas_canvas_supercut = new TCanvas("Canvas14","Canvas14");
+    origin_m_vs_rho1_m_supercut->Draw("Colz");
+
+    TLine line1 = TLine(1000, dynamic_rho_mass-allowed_rho_2_mass_difference_supercut, 3000, dynamic_rho_mass-allowed_rho_2_mass_difference_supercut);
+    line1.DrawClone();
+
+    TLine line2 = TLine(1000, dynamic_rho_mass+allowed_rho_2_mass_difference_supercut, 3000, dynamic_rho_mass+allowed_rho_2_mass_difference_supercut);
+    line2.DrawClone();
+
+    auto origin_projection_supercut_canvas = new TCanvas("Canvas15","Canvas15");
+    
+    auto origin_projection_supercut = origin_m_vs_rho1_m_supercut->ProjectionX("origin_m_vs_rho1_m_projection_supercut", (dynamic_rho_mass-allowed_rho_2_mass_difference_supercut-200)/6, (dynamic_rho_mass+allowed_rho_2_mass_difference_supercut-200)/6);
+    origin_projection_supercut->Draw();
 
 }
 
