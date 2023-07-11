@@ -315,7 +315,8 @@ void ntuple_analysis_momentum_conservation_v2() {
     const bool monte_carlo = false;
 
     const float pion_mass = 139.57039;
-    const float rho_mass = 720; //770
+    const float static_rho_mass = 770; //720, 770
+    float dynamic_rho_mass = static_rho_mass;
 
     const float allowed_px_difference = 150;
     const float allowed_py_difference = 150;
@@ -433,15 +434,6 @@ void ntuple_analysis_momentum_conservation_v2() {
         Particle* rhos[2][2];
         current_event.reconstruct_2_from_4(rhos, 2);
 
-        Particle* glueball1 = current_event.reconstruct_1_from_2(rhos[0][0], rhos[0][1], 3);
-        Particle* glueball2 = current_event.reconstruct_1_from_2(rhos[1][0], rhos[1][1], 3);
-
-        raw_origin_mass->Fill(glueball1->m);
-        raw_origin_mass->Fill(glueball2->m);
-
-        raw_origin_m_vs_rho1_m->Fill(glueball1->m, rhos[0][0]->m);
-        raw_origin_m_vs_rho1_m->Fill(glueball2->m, rhos[1][0]->m);
-
         prot_px_vs_ref_px->Fill(current_event.PR_p[0]+current_event.PL_p[0], current_event.ref_p[0]);
         prot_py_vs_ref_py->Fill(current_event.PR_p[1]+current_event.PL_p[1], current_event.ref_p[1]);
         
@@ -487,28 +479,6 @@ void ntuple_analysis_momentum_conservation_v2() {
             rho_masses->Fill(masses[0], masses[1]);
         }
 
-
-        if (rho_mass - allowed_rho_2_mass_difference < rhos[0][1]->m && rhos[0][1]->m < rho_mass + allowed_rho_2_mass_difference) {
-            origin_mass->Fill(glueball1->m);
-            origin_m_vs_rho1_m->Fill(glueball1->m, rhos[0][0]->m);
-        }
-
-        if (rho_mass - allowed_rho_2_mass_difference < rhos[1][1]->m && rhos[1][1]->m < rho_mass + allowed_rho_2_mass_difference) {
-            origin_mass->Fill(glueball2->m);
-            origin_m_vs_rho1_m->Fill(glueball2->m, rhos[1][0]->m);
-        }
-
-
-        if (rho_mass - allowed_rho_2_mass_difference_supercut < rhos[0][1]->m && rhos[0][1]->m < rho_mass + allowed_rho_2_mass_difference_supercut) {
-            origin_m_vs_rho1_m_supercut->Fill(glueball1->m, rhos[0][0]->m);
-        }
-
-        if (rho_mass - allowed_rho_2_mass_difference_supercut < rhos[1][1]->m && rhos[1][1]->m < rho_mass + allowed_rho_2_mass_difference_supercut) {
-            origin_m_vs_rho1_m_supercut->Fill(glueball2->m, rhos[1][0]->m);
-        }
-
-        
-
         //cout << endl;
         //cout << endl;
 
@@ -549,44 +519,61 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     float results[4];
 
-    //int peak_bin = raw_projection->GetMaximumBin();
-    int peak_bin = 88;
-    float peak = raw_projection->GetBinCenter(peak_bin);
-
-    raw_fcn_gaussian_min = peak - 100;
-    raw_fcn_gaussian_max = peak + 100;
-
-    TMinuit *gMinuit0 = new TMinuit(3);
-    gMinuit0->SetFCN(raw_fcn_gaussian);
-
-    Double_t arglist0[10];
-    Int_t ierflg0 = 0;
-
-    arglist0[0] = 1;
-
-    gMinuit0->mnexcm("SET ERR", arglist0 ,1,ierflg0);
-
-    static Double_t vstart0[4] = {1.92522e+03, 7.14645e+02, 1.24676e+02};
-    static Double_t step0[4] = {1, 1, 1};
-    gMinuit0->mnparm(0, "a0", vstart0[0], step0[0], 0,0,ierflg0);
-    gMinuit0->mnparm(1, "a2", vstart0[1], step0[1], 0,0,ierflg0);
-    gMinuit0->mnparm(2, "a3", vstart0[2], step0[2], 0,0,ierflg0);
-
-    arglist0[0] = 500;
-    arglist0[1] = 1.;
-    gMinuit0->mnexcm("MIGRAD", arglist0 ,2,ierflg0);
 
     Double_t amin,edm,errdef;
     Int_t nvpar,nparx,icstat;
-    gMinuit0->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
-
     Double_t val1,err1,val2,err2,val3,err3,val4,err4;
-    gMinuit0->GetParameter(0, val1, err1);
-    gMinuit0->GetParameter(1, val2, err2);
-    results[0] = val2;
-    gMinuit0->GetParameter(2, val3, err3);
 
-    TF1 gaussia_fit_raw("gaussia_fit_raw", "[0]*TMath::Gaus(x,[1],[2])", 200, 1400);
+    float difference = 1.;
+    int i = 0;
+    while (difference > i*0.001) {
+
+        raw_fcn_gaussian_min = dynamic_rho_mass - 50;
+        raw_fcn_gaussian_max = dynamic_rho_mass + 50;
+
+        TMinuit *gMinuit0 = new TMinuit(3);
+        gMinuit0->Command("SET PRINT -1");
+        gMinuit0->SetFCN(raw_fcn_gaussian);
+
+        Double_t arglist0[10];
+        Int_t ierflg0 = 0;
+
+        arglist0[0] = 1;
+
+        gMinuit0->mnexcm("SET ERR", arglist0 ,1,ierflg0);
+
+        static Double_t vstart0[4] = {1.92522e+03, dynamic_rho_mass, 1.24676e+02};
+        static Double_t step0[4] = {1, 1, 1};
+        gMinuit0->mnparm(0, "a0", vstart0[0], step0[0], 0,0,ierflg0);
+        gMinuit0->mnparm(1, "a2", vstart0[1], step0[1], 0,0,ierflg0);
+        gMinuit0->mnparm(2, "a3", vstart0[2], step0[2], 0,0,ierflg0);
+
+        arglist0[0] = 500;
+        arglist0[1] = 1.;
+        gMinuit0->mnexcm("MIGRAD", arglist0 ,2,ierflg0);
+
+        //Double_t amin,edm,errdef;
+        //Int_t nvpar,nparx,icstat;
+        gMinuit0->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
+
+        //Double_t val1,err1,val2,err2,val3,err3,val4,err4;
+        gMinuit0->GetParameter(0, val1, err1);
+        gMinuit0->GetParameter(1, val2, err2);
+        results[0] = val2;
+        gMinuit0->GetParameter(2, val3, err3);
+
+        difference = abs(dynamic_rho_mass - val2);
+
+        cout << "peak position " + to_string(i) + ": " + to_string(val2) << endl;
+        cout << "previous position: " + to_string(dynamic_rho_mass) << endl;
+        cout << "difference: " + to_string(difference) << endl;
+
+        dynamic_rho_mass = (dynamic_rho_mass + val2)/2;
+
+        ++i;
+    }
+
+    TF1 gaussia_fit_raw("gaussia_fit_raw", "[0]*TMath::Gaus(x,[1],[2])", raw_fcn_gaussian_min, raw_fcn_gaussian_max);
     gaussia_fit_raw.SetParameters(val1, val2, val3);
 
     gaussia_fit_raw.DrawCopy("Same");
@@ -599,55 +586,78 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     auto projections = new TCanvas("Canvas5","Canvas5");
     
+    float peak;
+    float peak_bin;
 
-    //projection = rho_masses->ProjectionX("X_projection");
-    projection = rho_masses->ProjectionX("X_projection", (rho_mass-allowed_rho_2_mass_difference-200)/6, (rho_mass+allowed_rho_2_mass_difference-200)/6);
-    projection->Draw();
+    dynamic_rho_mass = static_rho_mass;
+    difference = 1.;
+    i = 0;
+    while (difference > 0.01) {
+
+        projection = rho_masses->ProjectionX("X_projection", (dynamic_rho_mass-allowed_rho_2_mass_difference-200)/6, (dynamic_rho_mass+allowed_rho_2_mass_difference-200)/6);
+        projection->Draw();
 
 
 /////////////////////////////////////
 
-    peak_bin = projection->GetMaximumBin();
-    peak = projection->GetBinCenter(peak_bin);
+        //peak_bin = projection->GetMaximumBin();
+        //peak = projection->GetBinCenter(peak_bin);
+        peak = dynamic_rho_mass;
+
+        fcn_gaussian_min = peak - 100;
+        fcn_gaussian_max = peak + 100;
+
+        TMinuit *gMinuit1 = new TMinuit(3);
+        gMinuit1->SetFCN(fcn_gaussian);
+
+        Double_t arglist1[10];
+        Int_t ierflg1 = 0;
+
+        arglist1[0] = 1;
+
+        gMinuit1->mnexcm("SET ERR", arglist1 ,1,ierflg1);
+
+        static Double_t vstart1[4] = {6.16160e+02, peak, 1.17525e+02};
+        static Double_t step1[4] = {1, 1, 1};
+        gMinuit1->mnparm(0, "a1", vstart1[0], step1[0], 0,0,ierflg1);
+        gMinuit1->mnparm(1, "a2", vstart1[1], step1[1], 0,0,ierflg1);
+        gMinuit1->mnparm(2, "a3", vstart1[2], step1[2], 0,0,ierflg1);
+
+        arglist1[0] = 500;
+        arglist1[1] = 1.;
+        gMinuit1->mnexcm("MIGRAD", arglist1 ,2,ierflg1);
+
+        gMinuit1->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
+
+        
+        gMinuit1->GetParameter(0, val1, err1);
+        gMinuit1->GetParameter(1, val2, err2);
+
+        difference = abs(dynamic_rho_mass - val2);
+
+        cout << "peak position " + to_string(i) + ": " + to_string(val2) << endl;
+        cout << "previous position: " + to_string(dynamic_rho_mass) << endl;
+        cout << "difference: " + to_string(difference) << endl;
+
+        dynamic_rho_mass = val2;
+
+        cout << "peak position " + to_string(i) + ": " + to_string(val2) << endl;
+        cout << "previous position: " + to_string(dynamic_rho_mass) << endl;
     
-    float dynamic_rho_mass = peak;
+        cout << endl;
 
-    fcn_gaussian_min = peak - 120;
-    fcn_gaussian_max = peak + 120;
+        results[1] = val2;
+        gMinuit1->GetParameter(2, val3, err3);
 
-    TMinuit *gMinuit1 = new TMinuit(3);
-    gMinuit1->SetFCN(fcn_gaussian);
-
-    Double_t arglist1[10];
-    Int_t ierflg1 = 0;
-
-    arglist1[0] = 1;
-
-    gMinuit1->mnexcm("SET ERR", arglist1 ,1,ierflg1);
-
-    static Double_t vstart1[4] = {6.16160e+02, 7.22303e+02, 1.17525e+02};
-    static Double_t step1[4] = {1, 1, 1};
-    gMinuit1->mnparm(0, "a1", vstart1[0], step1[0], 0,0,ierflg1);
-    gMinuit1->mnparm(1, "a2", vstart1[1], step1[1], 0,0,ierflg1);
-    gMinuit1->mnparm(2, "a3", vstart1[2], step1[2], 0,0,ierflg1);
-
-    arglist1[0] = 500;
-    arglist1[1] = 1.;
-    gMinuit1->mnexcm("MIGRAD", arglist1 ,2,ierflg1);
-
-    gMinuit1->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
-
-    
-    gMinuit1->GetParameter(0, val1, err1);
-    gMinuit1->GetParameter(1, val2, err2);
-    results[1] = val2;
-    gMinuit1->GetParameter(2, val3, err3);
+        ++i;
+    }
 
     TF1 gaussia_fit("gaussia_fit", "[0]*TMath::Gaus(x,[1],[2])", 200, 1400);
     gaussia_fit.SetParameters(val1, val2, val3);
 
     gaussia_fit.DrawCopy("Same");
 
+/*
     
 ////////////////////////////////////////////
 
@@ -731,7 +741,7 @@ void ntuple_analysis_momentum_conservation_v2() {
     Landau_fit.SetLineColor(4);
     Landau_fit.DrawCopy("Same");
 
-
+*/
 
     
 
@@ -752,6 +762,131 @@ void ntuple_analysis_momentum_conservation_v2() {
     cout << results[1] << endl;
     cout << results[2] << endl;
     cout << results[3] << endl;
+
+
+    Reader.Restart();
+
+    while (Reader.Next()) {
+
+        if (trk_p.GetSize() != 4) {
+            continue;
+        }
+
+        Particle* particles[4];
+
+        for (int i=0;i<4;++i) {
+            Particle* particle = new Particle(1);
+            particle->p = 1000*trk_p[i];
+            particle->p_t = 1000*trk_pt[i];
+            particle->charge = trk_q[i];
+            particle->eta = trk_eta[i];
+            particle->phi = trk_phi[i];
+            particle->m = pion_mass;
+            particle->calculate_3d_momentum();
+            particle->calculate_energy();
+            particles[i] = particle;
+
+            particle->dxy = trk_dxy[i];
+            particle->dz = trk_dz[i];
+        }
+        
+        /*
+        for (Particle* particle : particles) {
+            //cout << "momentum: " << particle.p_t << ", charge: " << particle.charge << endl;
+            cout << "p_x: " << particle->p_x << ", p_y: " << particle->p_y << ", p_z: " << particle->p_z << ", Dp: " 
+            << particle->p - sqrt(pow(particle->p_x, 2)+pow(particle->p_y, 2)+pow(particle->p_z, 2)) 
+            << ", Dp_t: " << particle->p_t - sqrt(pow(particle->p_x, 2)+pow(particle->p_y, 2)) << ", charge: " << particle->charge << endl;
+        }
+        */
+
+        Event current_event(particles, 4);
+
+        if (monte_carlo) {
+            current_event.ThxR = -(*ThxR);
+            current_event.ThyR = -(*ThyR);
+            current_event.ThxL = (*ThxL);
+            current_event.ThyL = (*ThyL);
+        } else {
+            current_event.ThxR = -(*ThxR);
+            current_event.ThyR = (*ThyR);
+            current_event.ThxL = -(*ThxL);
+            current_event.ThyL = (*ThyL);
+        }
+        
+
+        float total_charge = current_event.calculate_total_charge();
+        if (total_charge != 0) {
+            //cout << "INVALID" << endl << endl;
+            continue;
+        }
+
+        current_event.calculate_momentum_of_refractive_system();
+        current_event.calculate_proton_momentums();
+
+        Particle* rhos[2][2];
+        current_event.reconstruct_2_from_4(rhos, 2);
+
+        Particle* glueball1 = current_event.reconstruct_1_from_2(rhos[0][0], rhos[0][1], 3);
+        Particle* glueball2 = current_event.reconstruct_1_from_2(rhos[1][0], rhos[1][1], 3);
+
+        raw_origin_mass->Fill(glueball1->m);
+        raw_origin_mass->Fill(glueball2->m);
+
+        raw_origin_m_vs_rho1_m->Fill(glueball1->m, rhos[0][0]->m);
+        raw_origin_m_vs_rho1_m->Fill(glueball2->m, rhos[1][0]->m);
+        
+        if (allowed_px_difference < abs(abs(current_event.PR_p[0]+current_event.PL_p[0]) - abs(current_event.ref_p[0]))) {
+            continue;
+        }
+
+        if (allowed_py_difference < abs(abs(current_event.PR_p[1]+current_event.PL_p[1]) - abs(current_event.ref_p[1]))) {
+            continue;
+        }
+        
+        if (current_event.get_dxy_variance()>allowed_dxy_variance) {
+            continue;
+        }
+
+        if (current_event.get_dz_variance()>allowed_dz_variance) {
+            continue;
+        }
+
+        float masses[2];
+        for (int i=0; i<2; ++i) {
+            for (int j=0; j<2; ++j) {
+                Particle* rho = rhos[i][j];
+                masses[j] = rho->m;
+                //cout << "m: " << rho->m << endl;
+            }
+            rho_masses->Fill(masses[0], masses[1]);
+        }
+
+
+        if (dynamic_rho_mass - allowed_rho_2_mass_difference < rhos[0][1]->m && rhos[0][1]->m < dynamic_rho_mass + allowed_rho_2_mass_difference) {
+            origin_mass->Fill(glueball1->m);
+            origin_m_vs_rho1_m->Fill(glueball1->m, rhos[0][0]->m);
+        }
+
+        if (dynamic_rho_mass - allowed_rho_2_mass_difference < rhos[1][1]->m && rhos[1][1]->m < dynamic_rho_mass + allowed_rho_2_mass_difference) {
+            origin_mass->Fill(glueball2->m);
+            origin_m_vs_rho1_m->Fill(glueball2->m, rhos[1][0]->m);
+        }
+
+
+        if (dynamic_rho_mass - allowed_rho_2_mass_difference_supercut < rhos[0][1]->m && rhos[0][1]->m < dynamic_rho_mass + allowed_rho_2_mass_difference_supercut) {
+            origin_m_vs_rho1_m_supercut->Fill(glueball1->m, rhos[0][0]->m);
+        }
+
+        if (dynamic_rho_mass - allowed_rho_2_mass_difference_supercut < rhos[1][1]->m && rhos[1][1]->m < dynamic_rho_mass + allowed_rho_2_mass_difference_supercut) {
+            origin_m_vs_rho1_m_supercut->Fill(glueball2->m, rhos[1][0]->m);
+        }
+
+        
+
+        //cout << endl;
+        //cout << endl;
+
+    } 
 
 
     auto raw_origin_mass_canvas = new TCanvas("Canvas10","Canvas10");
