@@ -318,8 +318,8 @@ void ntuple_analysis_momentum_conservation_v2() {
     const float static_rho_mass = 770; //720, 770
     float dynamic_rho_mass = static_rho_mass;
 
-    const float allowed_px_difference = 150;
-    const float allowed_py_difference = 150;
+    const float allowed_px_difference = 200;
+    const float allowed_py_difference = 200;
     const float allowed_dxy_variance = 0.15;
     const float allowed_dz_variance = 0.2;
     const float allowed_rho_2_mass_difference = 150;
@@ -354,8 +354,9 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     auto origin_m_vs_rho1_m_supercut = new TH2F("origin_m_vs_rho1_m_supercut", "Mass of the four track origin compared with mass of first rho particle with supercuts;origin mass/MeV;rho1 mass/MeV",200,1000,3000,200,200,1400);
 
-    //gStyle->SetOptStat(0);
+    gStyle->SetOptStat(0);
     rho_masses->Sumw2();
+    rho_masses_raw->Sumw2();
     origin_m_vs_rho1_m_supercut->Sumw2();
 
     TTreeReaderArray<Float_t> trk_p(Reader, "trk_p");
@@ -517,8 +518,11 @@ void ntuple_analysis_momentum_conservation_v2() {
     raw_projection = rho_masses_raw->ProjectionX("X_projection_raw");
     raw_projection->Draw();
 
-    float results[4];
+    float peak_values[4];
+    float peak_errors[4];
 
+    float std_dev_values[4];
+    float std_dev_errors[4];
 
     Double_t amin,edm,errdef;
     Int_t nvpar,nparx,icstat;
@@ -526,7 +530,7 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     float difference = 1.;
     int i = 0;
-    while (difference > i*0.001) {
+    while (difference > i*0.0001) {
 
         raw_fcn_gaussian_min = dynamic_rho_mass - 50;
         raw_fcn_gaussian_max = dynamic_rho_mass + 50;
@@ -559,8 +563,11 @@ void ntuple_analysis_momentum_conservation_v2() {
         //Double_t val1,err1,val2,err2,val3,err3,val4,err4;
         gMinuit0->GetParameter(0, val1, err1);
         gMinuit0->GetParameter(1, val2, err2);
-        results[0] = val2;
+        peak_values[0] = val2;
+        peak_errors[0] = err2;
         gMinuit0->GetParameter(2, val3, err3);
+        std_dev_values[0] = val3;
+        std_dev_errors[0] = err3;
 
         difference = abs(dynamic_rho_mass - val2);
 
@@ -568,15 +575,28 @@ void ntuple_analysis_momentum_conservation_v2() {
         cout << "previous position: " + to_string(dynamic_rho_mass) << endl;
         cout << "difference: " + to_string(difference) << endl;
 
-        dynamic_rho_mass = (dynamic_rho_mass + val2)/2;
+        if (dynamic_rho_mass < val2) {
+            dynamic_rho_mass += difference/3;
+        } else {
+            dynamic_rho_mass -= difference/3;
+        }
+        //dynamic_rho_mass = (dynamic_rho_mass + val2)/2;
 
         ++i;
     }
+    
 
     TF1 gaussia_fit_raw("gaussia_fit_raw", "[0]*TMath::Gaus(x,[1],[2])", raw_fcn_gaussian_min, raw_fcn_gaussian_max);
     gaussia_fit_raw.SetParameters(val1, val2, val3);
-
     gaussia_fit_raw.DrawCopy("Same");
+
+
+    TF1 gaussia_fit_raw_dots("gaussia_fit_raw_dots", "[0]*TMath::Gaus(x,[1],[2])", 200, 1400);
+    gaussia_fit_raw_dots.SetParameters(val1, val2, val3);
+    gaussia_fit_raw_dots.SetLineStyle(2);
+    gaussia_fit_raw_dots.DrawCopy("Same");
+
+    double raw_values[3] = {val1, val2, val3};
 
 
     auto main = new TCanvas("Canvas4","Canvas4");
@@ -604,8 +624,8 @@ void ntuple_analysis_momentum_conservation_v2() {
         //peak = projection->GetBinCenter(peak_bin);
         peak = dynamic_rho_mass;
 
-        fcn_gaussian_min = peak - 100;
-        fcn_gaussian_max = peak + 100;
+        fcn_gaussian_min = peak - 50;
+        fcn_gaussian_max = peak + 50;
 
         TMinuit *gMinuit1 = new TMinuit(3);
         gMinuit1->SetFCN(fcn_gaussian);
@@ -646,16 +666,87 @@ void ntuple_analysis_momentum_conservation_v2() {
     
         cout << endl;
 
-        results[1] = val2;
+        peak_values[1] = val2;
+        peak_errors[1] = err2;
         gMinuit1->GetParameter(2, val3, err3);
+        std_dev_values[1] = val3;
+        std_dev_errors[1] = err3;
 
         ++i;
     }
 
-    TF1 gaussia_fit("gaussia_fit", "[0]*TMath::Gaus(x,[1],[2])", 200, 1400);
+    TF1 gaussia_fit("gaussia_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass-50, dynamic_rho_mass+50);
     gaussia_fit.SetParameters(val1, val2, val3);
+    gaussia_fit.DrawCopy("Same");
+
+    TF1 gaussia_fit_dots_1("gaussia_fit_dots_1", "[0]*TMath::Gaus(x,[1],[2])", 200, dynamic_rho_mass-50);
+    gaussia_fit_dots_1.SetParameters(val1, val2, val3);
+    gaussia_fit_dots_1.SetLineStyle(2);
+    gaussia_fit_dots_1.DrawCopy("Same");
+
+    TF1 gaussia_fit_dots_2("gaussia_fit_dots_2", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass+50, 1400);
+    gaussia_fit_dots_2.SetParameters(val1, val2, val3);
+    gaussia_fit_dots_2.SetLineStyle(2);
+    gaussia_fit_dots_2.DrawCopy("Same");
+
+
+
+
+    auto proper_rho_fit_canvas = new TCanvas("proper_rho_fit_canvas","proper_rho_fit_canvas");
+    
+
+    float raw_scale = 0.4;
+
+    auto raw_projection_scaled=new TH1D(*raw_projection);
+    raw_projection_scaled->Scale(raw_scale);
+    raw_projection_scaled->SetTitle("");
+    raw_projection_scaled->SetYTitle("Events / 6 MeV");
+    raw_projection_scaled->SetXTitle("Mass (MeV)");
+    raw_projection_scaled->SetLineColor(kBlack);
+    raw_projection_scaled->Draw("Same");
+
+    projection = rho_masses->ProjectionX("X_projection", (dynamic_rho_mass-allowed_rho_2_mass_difference-200)/6, (dynamic_rho_mass+allowed_rho_2_mass_difference-200)/6);
+    projection->Draw("Same");
+
+    TF1 gaussia_fit_raw_scaled("gaussia_fit_raw_scaled", "[0]*TMath::Gaus(x,[1],[2])", raw_fcn_gaussian_min, raw_fcn_gaussian_max);
+    gaussia_fit_raw_scaled.SetParameters(raw_scale*raw_values[0], raw_values[1], raw_values[2]);
+    gaussia_fit_raw_scaled.DrawCopy("Same");
+
+    TF1 gaussia_fit_raw_scaled_dots_1("gaussia_fit_raw_scaled_dots_1", "[0]*TMath::Gaus(x,[1],[2])", 200, raw_fcn_gaussian_min);
+    gaussia_fit_raw_scaled_dots_1.SetParameters(raw_scale*raw_values[0], raw_values[1], raw_values[2]);
+    gaussia_fit_raw_scaled_dots_1.SetLineStyle(2);
+    gaussia_fit_raw_scaled_dots_1.DrawCopy("Same");
+
+    TF1 gaussia_fit_raw_scaled_dots_2("gaussia_fit_raw_scaled_dots_2", "[0]*TMath::Gaus(x,[1],[2])", raw_fcn_gaussian_max, 1400);
+    gaussia_fit_raw_scaled_dots_2.SetParameters(raw_scale*raw_values[0], raw_values[1], raw_values[2]);
+    gaussia_fit_raw_scaled_dots_2.SetLineStyle(2);
+    gaussia_fit_raw_scaled_dots_2.DrawCopy("Same");
+
+    gaussia_fit_raw_scaled.SetLineColor(kOrange+7);
+    gaussia_fit_raw_scaled_dots_1.SetLineColor(kOrange+7);
+    gaussia_fit_raw_scaled_dots_2.SetLineColor(kOrange+7);
+    gaussia_fit_raw_scaled.DrawCopy("Same");
+    gaussia_fit_raw_scaled_dots_1.DrawCopy("Same");
+    gaussia_fit_raw_scaled_dots_2.DrawCopy("Same");
 
     gaussia_fit.DrawCopy("Same");
+    gaussia_fit_dots_1.DrawCopy("Same");
+    gaussia_fit_dots_2.DrawCopy("Same");
+
+
+    TLegend leg(.7,.35,.9,.8,"");
+    leg.SetFillColor(0);
+    leg.SetTextSize(0.03);
+    leg.AddEntry(raw_projection_scaled,"raw data", "LE");
+    TString entry_string = "#splitline{gaussian fit}{#splitline{peak at "+to_string(peak_values[0])+"#pm1"+to_string(peak_errors[0])+"}{std. dev. 12#pm3}}";
+    leg.AddEntry(&gaussia_fit_raw_scaled, entry_string);
+    leg.AddEntry(projection,"#splitline{data with}{selection criteria}", "LE");
+    leg.AddEntry(&gaussia_fit,"#splitline{gaussian fit}{#splitline{peak at 11#pm1}{std. dev. 12#pm3}}");
+    leg.DrawClone("Same");
+    
+
+    CMS_lumi(proper_rho_fit_canvas, 17, 33);
+
 
 /*
     
@@ -691,8 +782,11 @@ void ntuple_analysis_momentum_conservation_v2() {
     //Double_t val1,err1,val2,err2,val3,err3;
     gMinuit2 ->GetParameter(0, val1, err1);
     gMinuit2 ->GetParameter(1, val2, err2);
-    results[2] = val2;
+    peak_values[2] = val2;
+    peak_errors[2] = err2;
     gMinuit2 ->GetParameter(2, val3, err3);
+    std_dev_values[2] = val3;
+    std_dev_errors[2] = err3;
 
     TF1 BreitWigner_fit("BreitWigner_fit", "[0]*TMath::BreitWigner(x,[1],[2])", 200, 1400);
     BreitWigner_fit.SetParameters(val1, val2, val3);
@@ -732,9 +826,12 @@ void ntuple_analysis_momentum_conservation_v2() {
 
     gMinuit3 ->GetParameter(0, val1, err1);
     gMinuit3 ->GetParameter(1, val2, err2);
-    results[3] = val2;
+    peak_values[3] = val2;
+    peak_errors[3] = err2;
     gMinuit3 ->GetParameter(2, val3, err3);
     gMinuit3 ->GetParameter(3, val4, err4);
+    std_dev_values[3] = val3;
+    std_dev_errors[3] = err3;
 
     TF1 Landau_fit("Landau_fit", "[3] + [0]*TMath::Landau(x,[1],[2])", 200, 1400);
     Landau_fit.SetParameters(val1, val2, val3, val4);
@@ -758,10 +855,10 @@ void ntuple_analysis_momentum_conservation_v2() {
     dz_variance_squared_vs_rho_m2->Draw("Colz");
 
     cout << "RESULTS: " << endl;
-    cout << results[0] << endl;
-    cout << results[1] << endl;
-    cout << results[2] << endl;
-    cout << results[3] << endl;
+    cout << to_string(peak_values[0]) + " ± " + to_string(peak_errors[0]) << endl;
+    cout << to_string(peak_values[1]) + " ± " + to_string(peak_errors[1]) << endl;
+    //cout << to_string(peak_values[2]) + " ± " + to_string(peak_errors[2]) << endl;
+    //cout << to_string(peak_values[3]) + " ± " + to_string(peak_errors[3]) << endl;
 
 
     Reader.Restart();
@@ -977,9 +1074,9 @@ void ntuple_analysis_momentum_conservation_v2() {
 }
 
 /*
-new TOTEM43
-715.048
-723.566
-729.022
-726.99
+724.594
+729.529
+-1.21579e-21
+-1.21579e-21
+
 */
