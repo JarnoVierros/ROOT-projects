@@ -205,6 +205,30 @@ class Event {
             }
             return total_squared_dz;
         }
+
+        float get_greatest_dxy() {
+            float maximum = 0;
+            for (int i=0; i<particle_count; ++i) {
+                Particle* current_particle = *(particles+i);
+                float dxy = abs(current_particle->dxy);
+                if (maximum < dxy) {
+                    maximum = dxy;
+                }
+            }
+            return maximum;
+        }
+
+        float get_greatest_dz() {
+            float maximum = 0;
+            for (int i=0; i<particle_count; ++i) {
+                Particle* current_particle = *(particles+i);
+                float dz = abs(current_particle->dz);
+                if (maximum < dz) {
+                    maximum = dz;
+                }
+            }
+            return maximum;
+        }
 };
 
 Double_t func_gaussian(float x,Double_t *par){
@@ -309,21 +333,61 @@ void fcn_Landau(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t if
     //cout << "chisq: " << chisq << endl << endl;
 }
 
+
+string rounded(float value, int decimals) {
+    float multiplier = pow(10, decimals);
+    string rounded_value = to_string(round(multiplier*value)/multiplier);
+    string output = "";
+    bool crossed_to_decimals = false;
+    if (decimals >= 0) {
+        for (int i=0;i<rounded_value.length()-decimals;i++) {
+            cout << output << endl;
+            char symbol = rounded_value[i];
+            if (symbol == '.') {
+                crossed_to_decimals = true;
+                if (decimals == 0) {
+                    break;
+                }
+            } else if (crossed_to_decimals) {
+                if (decimals == 0) {
+                    break;
+                }
+                decimals -= 1;
+            }
+            output += symbol;
+        }
+    } else {
+        for (int i=0;i<rounded_value.length()-decimals;i++) {
+            output += rounded_value[i];
+            if (rounded_value[i-decimals] == '.') {
+                break;
+            }
+        }
+    }
+    return output;
+}
+
 void ntuple_analysis_momentum_conservation_v2() {
 
     const string filename = "./ntuples/TOTEM43.root"; //"TOTEM43.root", kpkm.roo, 110000.root, rho.root, MinBias.root
-    const bool monte_carlo = false;
+    bool monte_carlo = false;
+    if (filename == "rho.root") {
+        monte_carlo = true;
+    }
 
     const float pion_mass = 139.57039;
-    const float static_rho_mass = 770; //720, 770
+    const float static_rho_mass = 720; //720, 770
     float dynamic_rho_mass = static_rho_mass;
 
     const float allowed_px_difference = 200;
     const float allowed_py_difference = 200;
     const float allowed_dxy_variance = 0.15;
     const float allowed_dz_variance = 0.2;
-    const float allowed_rho_2_mass_difference = 150;
-    const float allowed_rho_2_mass_difference_supercut = 31;
+    const float allowed_rho_mass_difference = 150;
+    const float allowed_rho_mass_difference_supercut = 50;
+
+    const float allowed_greatest_dxy = 0.2; //0.2
+    const float allowed_greatest_dz = 0.5; //0.6
 
     TFile *file = TFile::Open(filename.c_str());
     TTree* tree = (TTree*)file->Get("tree");
@@ -346,8 +410,15 @@ void ntuple_analysis_momentum_conservation_v2() {
     auto dxy_variance_squared_vs_rho_m2 = new TH2F("dxy_variance_squared_vs_rho_m2", "dxy variance and rho2 mass;dxy variance;rho2 mass/MeV",200,0,5,200,200,1400);
     auto dz_variance_squared_vs_rho_m2 = new TH2F("dz_variance_squared_vs_rho_m2", "dz variance and rho2 mass;dz variance;rho2 mass/MeV",200,0,5,200,200,1400);
 
+    auto dxy_maximum_vs_rho_m1 = new TH2F("dxy_maximum_vs_rho_m1", "dxy maximum and rho1 mass;dxy maximum;rho1 mass/MeV",200,0,1,200,200,1400);
+    auto dz_maximum_vs_rho_m1 = new TH2F("dz_maximum_vs_rho_m1", "dz maximum and rho1 mass;dz maximum;rho1 mass/MeV",200,0.2,2,200,200,1400);
+
+    auto dxy_maximum_rho_distribution = new TH1F("dxy_maximum_rho_distribution", "dxy maximum distribution near rho mass;dxy maximum",200,0,1);
+    auto dz_maximum_rho_distribution = new TH1F("dz_maximum_rho_distribution", "dz maximum distribution near rho mass;dz maximum",200,0.2,2);
+
     auto raw_origin_mass = new TH1F("raw_origin_mass", "Mass of the four track origin without cuts;mass/MeV",200,500,3000);
     auto origin_mass = new TH1F("origin_mass", "Mass of the four track origin with cuts;mass/MeV",200,500,3000);
+    //auto origin_mass = new TH1F("origin_mass", "Mass of the four track origin with cuts;mass/MeV",200,2000,2500);
 
     auto raw_origin_m_vs_rho1_m = new TH2F("raw_origin_m_vs_rho1_m", "Mass of the four track origin compared with mass of first rho particle without cuts;origin mass/MeV;rho1 mass/MeV",200,500,3000,200,200,1400);
     auto origin_m_vs_rho1_m = new TH2F("origin_m_vs_rho1_m", "Mass of the four track origin compared with mass of first rho particle with cuts;origin mass/MeV;rho1 mass/MeV",200,500,3000,200,200,1400);
@@ -452,8 +523,23 @@ void ntuple_analysis_momentum_conservation_v2() {
 
             dxy_variance_squared_vs_rho_m2->Fill(current_event.get_dxy_variance(), raw_masses[1]);
             dz_variance_squared_vs_rho_m2->Fill(current_event.get_dz_variance(), raw_masses[1]);
+
+            dxy_maximum_vs_rho_m1->Fill(current_event.get_greatest_dxy(), raw_masses[1]);
+            dz_maximum_vs_rho_m1->Fill(current_event.get_greatest_dz(), raw_masses[1]);
+            
         }
+
         
+
+        if (static_rho_mass - allowed_rho_mass_difference < rhos[0][0]->m && rhos[0][0]->m < static_rho_mass + allowed_rho_mass_difference && static_rho_mass - allowed_rho_mass_difference < rhos[0][1]->m && rhos[0][1]->m < static_rho_mass + allowed_rho_mass_difference) {
+            dxy_maximum_rho_distribution->Fill(current_event.get_greatest_dxy());
+            dz_maximum_rho_distribution->Fill(current_event.get_greatest_dz());
+        } else if (static_rho_mass - allowed_rho_mass_difference < rhos[1][0]->m && rhos[1][0]->m < static_rho_mass + allowed_rho_mass_difference && static_rho_mass - allowed_rho_mass_difference < rhos[1][1]->m && rhos[1][1]->m < static_rho_mass + allowed_rho_mass_difference) {
+            dxy_maximum_rho_distribution->Fill(current_event.get_greatest_dxy());
+            dz_maximum_rho_distribution->Fill(current_event.get_greatest_dz());
+        }
+
+
         if (allowed_px_difference < abs(abs(current_event.PR_p[0]+current_event.PL_p[0]) - abs(current_event.ref_p[0]))) {
             continue;
         }
@@ -461,7 +547,18 @@ void ntuple_analysis_momentum_conservation_v2() {
         if (allowed_py_difference < abs(abs(current_event.PR_p[1]+current_event.PL_p[1]) - abs(current_event.ref_p[1]))) {
             continue;
         }
+
+
+        if (current_event.get_greatest_dxy()>allowed_greatest_dxy) {
+            continue;
+        }
+
+        if (current_event.get_greatest_dz()>allowed_greatest_dz) {
+            continue;
+        }
         
+        
+        /*
         if (current_event.get_dxy_variance()>allowed_dxy_variance) {
             continue;
         }
@@ -469,6 +566,7 @@ void ntuple_analysis_momentum_conservation_v2() {
         if (current_event.get_dz_variance()>allowed_dz_variance) {
             continue;
         }
+        */
 
         float masses[2];
         for (int i=0; i<2; ++i) {
@@ -614,7 +712,8 @@ void ntuple_analysis_momentum_conservation_v2() {
     i = 0;
     while (difference > 0.01) {
 
-        projection = rho_masses->ProjectionX("X_projection", (dynamic_rho_mass-allowed_rho_2_mass_difference-200)/6, (dynamic_rho_mass+allowed_rho_2_mass_difference-200)/6);
+        projection = rho_masses->ProjectionX("X_projection", (dynamic_rho_mass-allowed_rho_mass_difference-200)/6, (dynamic_rho_mass+allowed_rho_mass_difference-200)/6);
+        //projection = rho_masses->ProjectionX("X_projection");
         projection->Draw();
 
 
@@ -622,12 +721,12 @@ void ntuple_analysis_momentum_conservation_v2() {
 
         //peak_bin = projection->GetMaximumBin();
         //peak = projection->GetBinCenter(peak_bin);
-        peak = dynamic_rho_mass;
 
-        fcn_gaussian_min = peak - 50;
-        fcn_gaussian_max = peak + 50;
+        fcn_gaussian_min = dynamic_rho_mass - 80;
+        fcn_gaussian_max = dynamic_rho_mass + 80;
 
         TMinuit *gMinuit1 = new TMinuit(3);
+        gMinuit1->Command("SET PRINT -1");
         gMinuit1->SetFCN(fcn_gaussian);
 
         Double_t arglist1[10];
@@ -637,7 +736,7 @@ void ntuple_analysis_momentum_conservation_v2() {
 
         gMinuit1->mnexcm("SET ERR", arglist1 ,1,ierflg1);
 
-        static Double_t vstart1[4] = {6.16160e+02, peak, 1.17525e+02};
+        static Double_t vstart1[4] = {6.16160e+02, dynamic_rho_mass, 1.17525e+02};
         static Double_t step1[4] = {1, 1, 1};
         gMinuit1->mnparm(0, "a1", vstart1[0], step1[0], 0,0,ierflg1);
         gMinuit1->mnparm(1, "a2", vstart1[1], step1[1], 0,0,ierflg1);
@@ -658,13 +757,13 @@ void ntuple_analysis_momentum_conservation_v2() {
         cout << "peak position " + to_string(i) + ": " + to_string(val2) << endl;
         cout << "previous position: " + to_string(dynamic_rho_mass) << endl;
         cout << "difference: " + to_string(difference) << endl;
-
-        dynamic_rho_mass = val2;
-
-        cout << "peak position " + to_string(i) + ": " + to_string(val2) << endl;
-        cout << "previous position: " + to_string(dynamic_rho_mass) << endl;
-    
         cout << endl;
+
+        if (dynamic_rho_mass < val2) {
+            dynamic_rho_mass += difference/5;
+        } else {
+            dynamic_rho_mass -= difference/5;
+        }
 
         peak_values[1] = val2;
         peak_errors[1] = err2;
@@ -673,6 +772,10 @@ void ntuple_analysis_momentum_conservation_v2() {
         std_dev_errors[1] = err3;
 
         ++i;
+
+        if (i > 200) {
+            break;
+        }
     }
 
     TF1 gaussia_fit("gaussia_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass-50, dynamic_rho_mass+50);
@@ -695,7 +798,7 @@ void ntuple_analysis_momentum_conservation_v2() {
     auto proper_rho_fit_canvas = new TCanvas("proper_rho_fit_canvas","proper_rho_fit_canvas");
     
 
-    float raw_scale = 0.4;
+    float raw_scale = 0.30;
 
     auto raw_projection_scaled=new TH1D(*raw_projection);
     raw_projection_scaled->Scale(raw_scale);
@@ -705,7 +808,6 @@ void ntuple_analysis_momentum_conservation_v2() {
     raw_projection_scaled->SetLineColor(kBlack);
     raw_projection_scaled->Draw("Same");
 
-    projection = rho_masses->ProjectionX("X_projection", (dynamic_rho_mass-allowed_rho_2_mass_difference-200)/6, (dynamic_rho_mass+allowed_rho_2_mass_difference-200)/6);
     projection->Draw("Same");
 
     TF1 gaussia_fit_raw_scaled("gaussia_fit_raw_scaled", "[0]*TMath::Gaus(x,[1],[2])", raw_fcn_gaussian_min, raw_fcn_gaussian_max);
@@ -734,18 +836,21 @@ void ntuple_analysis_momentum_conservation_v2() {
     gaussia_fit_dots_2.DrawCopy("Same");
 
 
-    TLegend leg(.7,.35,.9,.8,"");
+    TLegend leg(.7,.45,.9,.8,"");
     leg.SetFillColor(0);
     leg.SetTextSize(0.03);
     leg.AddEntry(raw_projection_scaled,"raw data", "LE");
-    TString entry_string = "#splitline{gaussian fit}{#splitline{peak at "+to_string(peak_values[0])+"#pm1"+to_string(peak_errors[0])+"}{std. dev. 12#pm3}}";
-    leg.AddEntry(&gaussia_fit_raw_scaled, entry_string);
+    //TString entry_string = "#splitline{gaussian fit}{#splitline{peak at "+rounded(peak_values[0], 0)+"#pm"+rounded(peak_errors[0], 0)+"}{std. dev. "+rounded(std_dev_values[0], -1)+"#pm"+rounded(std_dev_errors[0], -1)+"}}";
+    //leg.AddEntry(&gaussia_fit_raw_scaled, entry_string);
+    leg.AddEntry(&gaussia_fit_raw_scaled, "gaussian fit");
     leg.AddEntry(projection,"#splitline{data with}{selection criteria}", "LE");
-    leg.AddEntry(&gaussia_fit,"#splitline{gaussian fit}{#splitline{peak at 11#pm1}{std. dev. 12#pm3}}");
+    //entry_string = "#splitline{gaussian fit}{#splitline{peak at "+rounded(peak_values[1], -1)+"#pm"+rounded(peak_errors[1], -1)+"}{std. dev. "+rounded(std_dev_values[1], -1)+"#pm"+rounded(std_dev_errors[1], -1)+"}}";
+    //leg.AddEntry(&gaussia_fit,entry_string);
+    leg.AddEntry(&gaussia_fit, "gaussian fit");
     leg.DrawClone("Same");
     
 
-    CMS_lumi(proper_rho_fit_canvas, 17, 33);
+    CMS_lumi(proper_rho_fit_canvas, 17, 11);
 
 
 /*
@@ -854,9 +959,34 @@ void ntuple_analysis_momentum_conservation_v2() {
     auto dz_comparison_2 = new TCanvas("Canvas9","Canvas9");
     dz_variance_squared_vs_rho_m2->Draw("Colz");
 
+
+    auto dxy_maximum = new TCanvas("dxy_maximum_canvas","dxy_maximum_canvas");
+    dxy_maximum_vs_rho_m1->Draw("Colz");
+
+    TLine line21 = TLine(allowed_greatest_dxy, 200, allowed_greatest_dxy, 1400);
+    line21.DrawClone();
+
+    auto dz_maximum = new TCanvas("dz_maximum_canvas","dz_maximum_canvas");
+    dz_maximum_vs_rho_m1->Draw("Colz");
+
+    TLine line22 = TLine(allowed_greatest_dz, 200, allowed_greatest_dz, 1400);
+    line22.DrawClone();
+
+    auto dxy_maximum_distribution = new TCanvas("dxy_maximum_distribution_canvas","dxy_maximum_distribution_canvas");
+    dxy_maximum_rho_distribution->Draw();
+
+    auto dz_maximum_distribution = new TCanvas("dz_maximum_distribution_canvas","dz_maximum_distribution_canvas");
+    dz_maximum_rho_distribution->Draw();
+
+    
+
+
     cout << "RESULTS: " << endl;
     cout << to_string(peak_values[0]) + " ± " + to_string(peak_errors[0]) << endl;
     cout << to_string(peak_values[1]) + " ± " + to_string(peak_errors[1]) << endl;
+    cout << endl << endl;
+    cout << to_string(std_dev_values[0]) + " ± " + to_string(std_dev_errors[0]) << endl;
+    cout << to_string(std_dev_values[1]) + " ± " + to_string(std_dev_errors[1]) << endl;
     //cout << to_string(peak_values[2]) + " ± " + to_string(peak_errors[2]) << endl;
     //cout << to_string(peak_values[3]) + " ± " + to_string(peak_errors[3]) << endl;
 
@@ -939,7 +1069,16 @@ void ntuple_analysis_momentum_conservation_v2() {
         if (allowed_py_difference < abs(abs(current_event.PR_p[1]+current_event.PL_p[1]) - abs(current_event.ref_p[1]))) {
             continue;
         }
+
+        if (current_event.get_greatest_dxy()>allowed_greatest_dxy) {
+            continue;
+        }
+
+        if (current_event.get_greatest_dz()>allowed_greatest_dz) {
+            continue;
+        }
         
+        /*
         if (current_event.get_dxy_variance()>allowed_dxy_variance) {
             continue;
         }
@@ -947,6 +1086,7 @@ void ntuple_analysis_momentum_conservation_v2() {
         if (current_event.get_dz_variance()>allowed_dz_variance) {
             continue;
         }
+        */
 
         float masses[2];
         for (int i=0; i<2; ++i) {
@@ -959,22 +1099,22 @@ void ntuple_analysis_momentum_conservation_v2() {
         }
 
 
-        if (dynamic_rho_mass - allowed_rho_2_mass_difference < rhos[0][1]->m && rhos[0][1]->m < dynamic_rho_mass + allowed_rho_2_mass_difference) {
+        if (dynamic_rho_mass - allowed_rho_mass_difference < rhos[0][0]->m && rhos[0][0]->m < dynamic_rho_mass + allowed_rho_mass_difference && dynamic_rho_mass - allowed_rho_mass_difference < rhos[0][1]->m && rhos[0][1]->m < dynamic_rho_mass + allowed_rho_mass_difference) {
             origin_mass->Fill(glueball1->m);
             origin_m_vs_rho1_m->Fill(glueball1->m, rhos[0][0]->m);
         }
 
-        if (dynamic_rho_mass - allowed_rho_2_mass_difference < rhos[1][1]->m && rhos[1][1]->m < dynamic_rho_mass + allowed_rho_2_mass_difference) {
+        if (dynamic_rho_mass - allowed_rho_mass_difference < rhos[1][0]->m && rhos[1][0]->m < dynamic_rho_mass + allowed_rho_mass_difference && dynamic_rho_mass - allowed_rho_mass_difference < rhos[1][1]->m && rhos[1][1]->m < dynamic_rho_mass + allowed_rho_mass_difference) {
             origin_mass->Fill(glueball2->m);
             origin_m_vs_rho1_m->Fill(glueball2->m, rhos[1][0]->m);
         }
 
 
-        if (dynamic_rho_mass - allowed_rho_2_mass_difference_supercut < rhos[0][1]->m && rhos[0][1]->m < dynamic_rho_mass + allowed_rho_2_mass_difference_supercut) {
+        if (dynamic_rho_mass - allowed_rho_mass_difference_supercut < rhos[0][1]->m && rhos[0][1]->m < dynamic_rho_mass + allowed_rho_mass_difference_supercut) {
             origin_m_vs_rho1_m_supercut->Fill(glueball1->m, rhos[0][0]->m);
         }
 
-        if (dynamic_rho_mass - allowed_rho_2_mass_difference_supercut < rhos[1][1]->m && rhos[1][1]->m < dynamic_rho_mass + allowed_rho_2_mass_difference_supercut) {
+        if (dynamic_rho_mass - allowed_rho_mass_difference_supercut < rhos[1][1]->m && rhos[1][1]->m < dynamic_rho_mass + allowed_rho_mass_difference_supercut) {
             origin_m_vs_rho1_m_supercut->Fill(glueball2->m, rhos[1][0]->m);
         }
 
@@ -1014,17 +1154,16 @@ void ntuple_analysis_momentum_conservation_v2() {
     auto origin_mass_canvas_canvas_supercut = new TCanvas("Canvas14","Canvas14");
     origin_m_vs_rho1_m_supercut->Draw("Colz");
 
-    TLine line1 = TLine(1000, dynamic_rho_mass-allowed_rho_2_mass_difference_supercut, 3000, dynamic_rho_mass-allowed_rho_2_mass_difference_supercut);
+    TLine line1 = TLine(1000, dynamic_rho_mass-allowed_rho_mass_difference_supercut, 3000, dynamic_rho_mass-allowed_rho_mass_difference_supercut);
     line1.DrawClone();
 
-    TLine line2 = TLine(1000, dynamic_rho_mass+allowed_rho_2_mass_difference_supercut, 3000, dynamic_rho_mass+allowed_rho_2_mass_difference_supercut);
+    TLine line2 = TLine(1000, dynamic_rho_mass+allowed_rho_mass_difference_supercut, 3000, dynamic_rho_mass+allowed_rho_mass_difference_supercut);
     line2.DrawClone();
 
     auto origin_projection_supercut_canvas = new TCanvas("Canvas15","Canvas15");
     
-    auto origin_projection_supercut = origin_m_vs_rho1_m_supercut->ProjectionX("origin_m_vs_rho1_m_projection_supercut", (dynamic_rho_mass-allowed_rho_2_mass_difference_supercut-200)/6, (dynamic_rho_mass+allowed_rho_2_mass_difference_supercut-200)/6);
+    auto origin_projection_supercut = origin_m_vs_rho1_m_supercut->ProjectionX("origin_m_vs_rho1_m_projection_supercut", (dynamic_rho_mass-allowed_rho_mass_difference_supercut-200)/6, (dynamic_rho_mass+allowed_rho_mass_difference_supercut-200)/6);
     origin_projection_supercut->Draw();
-
 
 
     /*
@@ -1074,9 +1213,11 @@ void ntuple_analysis_momentum_conservation_v2() {
 }
 
 /*
-724.594
-729.529
--1.21579e-21
--1.21579e-21
+variance cuts:
+724.594421 ± 2.811280
+729.529297 ± 5.155312
 
+
+120.558868 ± 13.010889
+118.874001 ± 23.329580
 */

@@ -38,7 +38,7 @@ CMS_lumi( TPad* pad, int iPeriod, int iPosX )
     }
   else if ( iPeriod==17 )
     {
-      lumiText = "2018 data 13 TeV";
+      lumiText = "2018 data (13 TeV)";
     }
   else if ( iPeriod==2 )
     {
