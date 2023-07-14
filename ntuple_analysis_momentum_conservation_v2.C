@@ -792,7 +792,111 @@ void ntuple_analysis_momentum_conservation_v2() {
     gaussia_fit_dots_2.SetLineStyle(2);
     gaussia_fit_dots_2.DrawCopy("Same");
 
+////////////////////////////////////////////
+////////////////////////////////////////////
 
+    fcn_BreitWigner_min = dynamic_rho_mass - 100;
+    fcn_BreitWigner_max = dynamic_rho_mass + 100;
+    
+    TMinuit *gMinuit2 = new TMinuit(3);
+    gMinuit2->SetFCN(fcn_BreitWigner);
+
+    Double_t arglist2[10];
+    Int_t ierflg2 = 0;
+
+    arglist2[0] = 1;
+
+    gMinuit2 ->mnexcm("SET ERR", arglist2 ,1,ierflg2);
+
+    static Double_t vstart2[4] = {3.26161e+05, dynamic_rho_mass, 3.42154e+02};
+    static Double_t step2[4] = {1, 1, 1};
+    gMinuit2 ->mnparm(0, "a1", vstart2[0], step2[0], 0,0,ierflg2);
+    gMinuit2 ->mnparm(1, "a2", vstart2[1], step2[1], 0,0,ierflg2);
+    gMinuit2 ->mnparm(2, "a3", vstart2[2], step2[2], 0,0,ierflg2);
+
+    arglist2[0] = 500;
+    arglist2[1] = 1.;
+    gMinuit2 ->mnexcm("MIGRAD", arglist2 ,2,ierflg2);
+
+    //Double_t amin,edm,errdef;
+    //Int_t nvpar,nparx,icstat;
+    gMinuit2 ->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
+
+    //Double_t val1,err1,val2,err2,val3,err3;
+    gMinuit2 ->GetParameter(0, val1, err1);
+    gMinuit2 ->GetParameter(1, val2, err2);
+    peak_values[2] = val2;
+    peak_errors[2] = err2;
+    gMinuit2 ->GetParameter(2, val3, err3);
+    std_dev_values[2] = val3;
+    std_dev_errors[2] = err3;
+
+    TF1 BreitWigner_fit("BreitWigner_fit", "[0]*TMath::BreitWigner(x,[1],[2])", fcn_BreitWigner_min, fcn_BreitWigner_max);
+    BreitWigner_fit.SetParameters(val1, val2, val3);
+    BreitWigner_fit.SetLineColor(3);
+    BreitWigner_fit.DrawCopy("Same");
+
+    TF1 BreitWigner_fit_dots_1("BreitWigner_fit_dots_1", "[0]*TMath::BreitWigner(x,[1],[2])", 200, fcn_BreitWigner_max);
+    BreitWigner_fit_dots_1.SetParameters(val1, val2, val3);
+    BreitWigner_fit_dots_1.SetLineColor(3);
+    BreitWigner_fit_dots_1.SetLineStyle(2);
+    BreitWigner_fit_dots_1.DrawCopy("Same");
+
+    TF1 BreitWigner_fit_dots_2("BreitWigner_fit_dots_2", "[0]*TMath::BreitWigner(x,[1],[2])", fcn_BreitWigner_min, 1400);
+    BreitWigner_fit_dots_2.SetParameters(val1, val2, val3);
+    BreitWigner_fit_dots_2.SetLineColor(3);
+    BreitWigner_fit_dots_2.SetLineStyle(2);
+    BreitWigner_fit_dots_2.DrawCopy("Same");
+
+/*
+
+////////////////////////////////////////////
+
+    fcn_Landau_min = peak - 100;
+    fcn_Landau_max = peak + 300;
+
+    TMinuit *gMinuit3 = new TMinuit(4);
+    gMinuit3->SetFCN(fcn_Landau);
+
+    Double_t arglist3[10];
+    Int_t ierflg3 = 0;
+
+    arglist3[0] = 1;
+
+    gMinuit3 ->mnexcm("SET ERR", arglist3 ,1,ierflg3);
+
+    static Double_t vstart3[4] = {3.28034e+03, 7.12024e+02, 7.82408e+01, 0};
+    static Double_t step3[4] = {1, 0.1, 1, 1};
+    gMinuit3 ->mnparm(0, "a1", vstart3[0], step3[0], 0,0,ierflg3);
+    gMinuit3 ->mnparm(1, "a2", vstart3[1], step3[1], 0,0,ierflg3);
+    gMinuit3 ->mnparm(2, "a3", vstart3[2], step3[2], 0,0,ierflg3);
+    gMinuit3 ->mnparm(3, "a4", vstart3[3], step3[3], 0,0,ierflg3);
+
+    arglist3[0] = 500;
+    arglist3[1] = 1.;
+    gMinuit3 ->mnexcm("MIGRAD", arglist3 ,2,ierflg3);
+
+    //Double_t amin,edm,errdef;
+    //Int_t nvpar,nparx,icstat;
+    gMinuit3 ->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
+
+    gMinuit3 ->GetParameter(0, val1, err1);
+    gMinuit3 ->GetParameter(1, val2, err2);
+    peak_values[3] = val2;
+    peak_errors[3] = err2;
+    gMinuit3 ->GetParameter(2, val3, err3);
+    gMinuit3 ->GetParameter(3, val4, err4);
+    std_dev_values[3] = val3;
+    std_dev_errors[3] = err3;
+
+    TF1 Landau_fit("Landau_fit", "[3] + [0]*TMath::Landau(x,[1],[2])", 200, 1400);
+    Landau_fit.SetParameters(val1, val2, val3, val4);
+    Landau_fit.SetLineColor(4);
+    Landau_fit.DrawCopy("Same");
+
+*/
+////////////////////////
+////////////////////////
 
 
     auto proper_rho_fit_canvas = new TCanvas("proper_rho_fit_canvas","proper_rho_fit_canvas");
@@ -853,98 +957,6 @@ void ntuple_analysis_momentum_conservation_v2() {
     CMS_lumi(proper_rho_fit_canvas, 17, 11);
 
 
-/*
-    
-////////////////////////////////////////////
-
-    fcn_BreitWigner_min = peak - 200;
-    fcn_BreitWigner_max = peak + 200;
-    
-    TMinuit *gMinuit2 = new TMinuit(3);
-    gMinuit2->SetFCN(fcn_BreitWigner);
-
-    Double_t arglist2[10];
-    Int_t ierflg2 = 0;
-
-    arglist2[0] = 1;
-
-    gMinuit2 ->mnexcm("SET ERR", arglist2 ,1,ierflg2);
-
-    static Double_t vstart2[4] = {3.26161e+05, 7.11412e+02, 3.42154e+02};
-    static Double_t step2[4] = {1, 1, 1};
-    gMinuit2 ->mnparm(0, "a1", vstart2[0], step2[0], 0,0,ierflg2);
-    gMinuit2 ->mnparm(1, "a2", vstart2[1], step2[1], 0,0,ierflg2);
-    gMinuit2 ->mnparm(2, "a3", vstart2[2], step2[2], 0,0,ierflg2);
-
-    arglist2[0] = 500;
-    arglist2[1] = 1.;
-    gMinuit2 ->mnexcm("MIGRAD", arglist2 ,2,ierflg2);
-
-    //Double_t amin,edm,errdef;
-    //Int_t nvpar,nparx,icstat;
-    gMinuit2 ->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
-
-    //Double_t val1,err1,val2,err2,val3,err3;
-    gMinuit2 ->GetParameter(0, val1, err1);
-    gMinuit2 ->GetParameter(1, val2, err2);
-    peak_values[2] = val2;
-    peak_errors[2] = err2;
-    gMinuit2 ->GetParameter(2, val3, err3);
-    std_dev_values[2] = val3;
-    std_dev_errors[2] = err3;
-
-    TF1 BreitWigner_fit("BreitWigner_fit", "[0]*TMath::BreitWigner(x,[1],[2])", 200, 1400);
-    BreitWigner_fit.SetParameters(val1, val2, val3);
-    BreitWigner_fit.SetLineColor(3);
-    BreitWigner_fit.DrawCopy("Same");
-
-
-////////////////////////////////////////////
-
-    fcn_Landau_min = peak - 100;
-    fcn_Landau_max = peak + 300;
-
-    TMinuit *gMinuit3 = new TMinuit(4);
-    gMinuit3->SetFCN(fcn_Landau);
-
-    Double_t arglist3[10];
-    Int_t ierflg3 = 0;
-
-    arglist3[0] = 1;
-
-    gMinuit3 ->mnexcm("SET ERR", arglist3 ,1,ierflg3);
-
-    static Double_t vstart3[4] = {3.28034e+03, 7.12024e+02, 7.82408e+01, 0};
-    static Double_t step3[4] = {1, 0.1, 1, 1};
-    gMinuit3 ->mnparm(0, "a1", vstart3[0], step3[0], 0,0,ierflg3);
-    gMinuit3 ->mnparm(1, "a2", vstart3[1], step3[1], 0,0,ierflg3);
-    gMinuit3 ->mnparm(2, "a3", vstart3[2], step3[2], 0,0,ierflg3);
-    gMinuit3 ->mnparm(3, "a4", vstart3[3], step3[3], 0,0,ierflg3);
-
-    arglist3[0] = 500;
-    arglist3[1] = 1.;
-    gMinuit3 ->mnexcm("MIGRAD", arglist3 ,2,ierflg3);
-
-    //Double_t amin,edm,errdef;
-    //Int_t nvpar,nparx,icstat;
-    gMinuit3 ->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
-
-    gMinuit3 ->GetParameter(0, val1, err1);
-    gMinuit3 ->GetParameter(1, val2, err2);
-    peak_values[3] = val2;
-    peak_errors[3] = err2;
-    gMinuit3 ->GetParameter(2, val3, err3);
-    gMinuit3 ->GetParameter(3, val4, err4);
-    std_dev_values[3] = val3;
-    std_dev_errors[3] = err3;
-
-    TF1 Landau_fit("Landau_fit", "[3] + [0]*TMath::Landau(x,[1],[2])", 200, 1400);
-    Landau_fit.SetParameters(val1, val2, val3, val4);
-    Landau_fit.SetLineColor(4);
-    Landau_fit.DrawCopy("Same");
-
-*/
-
     
 
     auto dxy_comparison_1 = new TCanvas("Canvas6","Canvas6");
@@ -984,10 +996,11 @@ void ntuple_analysis_momentum_conservation_v2() {
     cout << "RESULTS: " << endl;
     cout << to_string(peak_values[0]) + " ± " + to_string(peak_errors[0]) << endl;
     cout << to_string(peak_values[1]) + " ± " + to_string(peak_errors[1]) << endl;
+    cout << to_string(peak_values[2]) + " ± " + to_string(peak_errors[2]) << endl;
     cout << endl << endl;
     cout << to_string(std_dev_values[0]) + " ± " + to_string(std_dev_errors[0]) << endl;
     cout << to_string(std_dev_values[1]) + " ± " + to_string(std_dev_errors[1]) << endl;
-    //cout << to_string(peak_values[2]) + " ± " + to_string(peak_errors[2]) << endl;
+    cout << to_string(std_dev_values[2]) + " ± " + to_string(std_dev_errors[2]) << endl;
     //cout << to_string(peak_values[3]) + " ± " + to_string(peak_errors[3]) << endl;
 
 
