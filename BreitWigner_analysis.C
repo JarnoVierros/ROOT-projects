@@ -252,6 +252,11 @@ Double_t func_LanBreWig(float x,Double_t *par){
     return value;
 }
 
+Double_t func_LanBreWig_fullfit(float x,Double_t *par){
+    Double_t value = par[0]*TMath::BreitWigner(x,par[1],par[2]) + par[6] + par[3]*TMath::Landau(x,par[4],par[5]);
+    return value;
+}
+
 
 static TH1D* projection;
 static TH1D* raw_projection;
@@ -340,8 +345,10 @@ void raw_fcn_BreitWigner(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par,
     //cout << "chisq: " << chisq << endl << endl;
 }
 
-static float fcn_Landau_min;
-static float fcn_Landau_max;
+static float fcn_Landau_K_gap_min;
+static float fcn_Landau_K_gap_max;
+static float fcn_Landau_rho_gap_min;
+static float fcn_Landau_rho_gap_max;
 void fcn_Landau(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
     const Int_t nbins = 200;
     Int_t i;
@@ -353,7 +360,25 @@ void fcn_Landau(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t if
         if (projection->GetBinContent(i)<1) {
             continue;
         } 
-        delta  = (enforce_interval(projection->GetBinCenter(i), 200, fcn_Landau_min)+enforce_interval(projection->GetBinCenter(i), fcn_Landau_max, 1400))*(projection->GetBinContent(i)-func_Landau(projection->GetBinCenter(i),par))/(projection->GetBinError(i));
+        delta  = (enforce_interval(projection->GetBinCenter(i), 200, fcn_Landau_K_gap_min)+enforce_interval(projection->GetBinCenter(i), fcn_Landau_K_gap_max, fcn_Landau_rho_gap_min)+enforce_interval(projection->GetBinCenter(i), fcn_Landau_rho_gap_max, 1400))*(projection->GetBinContent(i)-func_Landau(projection->GetBinCenter(i),par))/(projection->GetBinError(i));
+        chisq += delta*delta;
+    }
+    f = chisq;
+    //cout << "chisq: " << chisq << endl << endl;
+}
+
+void raw_fcn_Landau(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
+    const Int_t nbins = 200;
+    Int_t i;
+
+    //calculate chisquare
+    Double_t chisq = 0;
+    Double_t delta;
+    for (i=0;i<nbins; i++) {
+        if (raw_projection->GetBinContent(i)<1) {
+            continue;
+        } 
+        delta  = (enforce_interval(raw_projection->GetBinCenter(i), 200, fcn_Landau_K_gap_min)+enforce_interval(raw_projection->GetBinCenter(i), fcn_Landau_K_gap_max, fcn_Landau_rho_gap_min)+enforce_interval(raw_projection->GetBinCenter(i), fcn_Landau_rho_gap_max, 1400))*(raw_projection->GetBinContent(i)-func_Landau(raw_projection->GetBinCenter(i),par))/(raw_projection->GetBinError(i));
         chisq += delta*delta;
     }
     f = chisq;
@@ -374,6 +399,60 @@ void fcn_LanBreWig(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t
             continue;
         } 
         delta  = enforce_interval(projection->GetBinCenter(i), fcn_LanBreWig_min, fcn_LanBreWig_max)*(projection->GetBinContent(i)-func_LanBreWig(projection->GetBinCenter(i),par))/(projection->GetBinError(i));
+        chisq += delta*delta;
+    }
+    f = chisq;
+    //cout << "chisq: " << chisq << endl << endl;
+}
+
+void raw_fcn_LanBreWig(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
+    const Int_t nbins = 200;
+    Int_t i;
+
+    //calculate chisquare
+    Double_t chisq = 0;
+    Double_t delta;
+    for (i=0;i<nbins; i++) {
+        if (raw_projection->GetBinContent(i)<1) {
+            continue;
+        } 
+        delta  = enforce_interval(raw_projection->GetBinCenter(i), fcn_LanBreWig_min, fcn_LanBreWig_max)*(raw_projection->GetBinContent(i)-func_LanBreWig(raw_projection->GetBinCenter(i),par))/(raw_projection->GetBinError(i));
+        chisq += delta*delta;
+    }
+    f = chisq;
+    //cout << "chisq: " << chisq << endl << endl;
+}
+
+void fcn_LanBreWig_fullfit(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
+    const Int_t nbins = 200;
+    Int_t i;
+
+    //calculate chisquare
+    Double_t chisq = 0;
+    Double_t delta;
+    for (i=0;i<nbins; i++) {
+        if (projection->GetBinContent(i)<1) {
+            continue;
+        } 
+        delta  = (enforce_interval(projection->GetBinCenter(i), 200, fcn_Landau_K_gap_min)+enforce_interval(projection->GetBinCenter(i), fcn_Landau_K_gap_max, 1400))*(projection->GetBinContent(i)-func_LanBreWig_fullfit(projection->GetBinCenter(i),par))/(projection->GetBinError(i));
+        chisq += delta*delta;
+    }
+    f = chisq;
+    //cout << "chisq: " << chisq << endl << endl;
+}
+
+void raw_fcn_LanBreWig_fullfit(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
+    const Int_t nbins = 200;
+    Int_t i;
+
+    //calculate chisquare
+    Double_t chisq = 0;
+    Double_t delta;
+    for (i=0;i<nbins; i++) {
+        if (raw_projection->GetBinContent(i)<1) {
+            continue;
+        } 
+        delta  = (enforce_interval(raw_projection->GetBinCenter(i), 200, fcn_Landau_K_gap_min)+enforce_interval(raw_projection->GetBinCenter(i), fcn_Landau_K_gap_max, 1400))*(raw_projection->GetBinContent(i)-func_LanBreWig_fullfit(raw_projection->GetBinCenter(i),par))/(raw_projection->GetBinError(i));
         chisq += delta*delta;
     }
     f = chisq;
@@ -433,6 +512,8 @@ void BreitWigner_analysis() {
     const float allowed_dz_variance = 0.2;
     const float allowed_rho_mass_difference = 150;
     const float allowed_rho_mass_difference_supercut = 50;
+    const float K_radius = 25;
+    const float raw_K_radius = 35;
 
     const float allowed_greatest_dxy = 0.2; //0.2
     const float allowed_greatest_dz = 0.5; //0.6
@@ -672,7 +753,12 @@ void BreitWigner_analysis() {
 
     Double_t amin,edm,errdef;
     Int_t nvpar,nparx,icstat;
-    Double_t val1,err1,val2,err2,val3,err3,val4,err4;
+    Double_t val1,err1,val2,err2,val3,err3,val4,err4,val5,err5,val6,err6,val7,err7;
+    Double_t arglist[10];
+    Int_t ierflg = 0;
+    static Double_t vstart[7];
+    static Double_t step[7];
+
 
     float difference = 1.;
     int i = 0;
@@ -689,22 +775,23 @@ void BreitWigner_analysis() {
         //gMinuit0->Command("SET NOWarnings");
         gMinuit0->SetFCN(raw_fcn_BreitWigner);
 
-        Double_t arglist0[10];
-        Int_t ierflg0 = 0;
+        arglist[0] = 1;
 
-        arglist0[0] = 1;
+        gMinuit0->mnexcm("SET ERR", arglist ,1,ierflg);
 
-        gMinuit0->mnexcm("SET ERR", arglist0 ,1,ierflg0);
+        vstart[0] = 1.52062e+05;
+        vstart[1] = dynamic_rho_mass;
+        vstart[2] = 300;
+        step[0] = 1;
+        step[1] = 1;
+        step[2] = 1;
+        gMinuit0->mnparm(0, "a0", vstart[0], step[0], 0,0,ierflg);
+        gMinuit0->mnparm(1, "a2", vstart[1], step[1], 0,0,ierflg);
+        gMinuit0->mnparm(2, "a3", vstart[2], step[2], 0,0,ierflg);
 
-        static Double_t vstart0[4] = {1.52062e+05, dynamic_rho_mass, 300};
-        static Double_t step0[4] = {1, 1, 1};
-        gMinuit0->mnparm(0, "a0", vstart0[0], step0[0], 0,0,ierflg0);
-        gMinuit0->mnparm(1, "a2", vstart0[1], step0[1], 0,0,ierflg0);
-        gMinuit0->mnparm(2, "a3", vstart0[2], step0[2], 0,0,ierflg0);
-
-        arglist0[0] = 500;
-        arglist0[1] = 1.;
-        gMinuit0->mnexcm("MIGRAD", arglist0 ,2,ierflg0);
+        arglist[0] = 500;
+        arglist[1] = 1.;
+        gMinuit0->mnexcm("MIGRAD", arglist ,2,ierflg);
 
         //Double_t amin,edm,errdef;
         //Int_t nvpar,nparx,icstat;
@@ -760,6 +847,7 @@ void BreitWigner_analysis() {
         }
     }
 
+/*
     TF1 BreitWigner_fit_raw("BreitWigner_fit_raw", "[0]*TMath::BreitWigner(x,[1],[2])", raw_fcn_BreitWigner_min, raw_fcn_BreitWigner_max);
     BreitWigner_fit_raw.SetParameters(val1, val2, val3);
     BreitWigner_fit_raw.DrawCopy("Same");
@@ -769,15 +857,185 @@ void BreitWigner_analysis() {
     BreitWigner_fit_raw_dots.SetParameters(val1, val2, val3);
     BreitWigner_fit_raw_dots.SetLineStyle(2);
     BreitWigner_fit_raw_dots.DrawCopy("Same");
-
+*/
     double raw_values[3] = {val1, val2, val3};
+
+
+    fcn_Landau_K_gap_min = static_K_mass-raw_K_radius;
+    fcn_Landau_K_gap_max = static_K_mass+raw_K_radius;
+    fcn_Landau_rho_gap_min = dynamic_rho_mass-150;
+    fcn_Landau_rho_gap_max = dynamic_rho_mass+150;
+
+    TMinuit *gMinuit02 = new TMinuit(4);
+    gMinuit02->SetFCN(raw_fcn_Landau);
+
+    arglist[0] = 1;
+
+    gMinuit02 ->mnexcm("SET ERR", arglist ,1,ierflg);
+
+    vstart[0] = 3.28034e+03;
+    vstart[1] = dynamic_rho_mass;
+    vstart[2] = 7.82408e+01;
+    vstart[3] = 0;
+    step[0] = 1;
+    step[1] = 0.1;
+    step[2] = 1;
+    step[3] = 1;
+    gMinuit02 ->mnparm(0, "a1", vstart[0], step[0], 0,0,ierflg);
+    gMinuit02 ->mnparm(1, "a2", vstart[1], step[1], 0,0,ierflg);
+    gMinuit02 ->mnparm(2, "a3", vstart[2], step[2], 0,0,ierflg);
+    gMinuit02 ->mnparm(3, "a4", vstart[3], step[3], 0,0,ierflg);
+
+    arglist[0] = 500;
+    arglist[1] = 1.;
+    gMinuit02 ->mnexcm("MIGRAD", arglist ,2,ierflg);
+
+    //Double_t amin,edm,errdef;
+    //Int_t nvpar,nparx,icstat;
+    gMinuit02 ->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
+
+    gMinuit02 ->GetParameter(0, val1, err1);
+    gMinuit02 ->GetParameter(1, val2, err2);
+    gMinuit02 ->GetParameter(2, val3, err3);
+    gMinuit02 ->GetParameter(3, val4, err4);
+
+    LanBreWig_parameters[0] = val1;
+    LanBreWig_parameters[1] = val2;
+    LanBreWig_parameters[2] = val3;
+    LanBreWig_parameters[3] = val4;
+
+    Double_t raw_landau_fit_parameters[4] = {val1, val2, val3, val4};
+
+    TF1 raw_Landau_fit("raw_Landau_fit", "[3] + [0]*TMath::Landau(x,[1],[2])", 200, 1400);
+    raw_Landau_fit.SetParameters(val1, val2, val3, val4);
+    raw_Landau_fit.SetLineColor(1);
+    raw_Landau_fit.DrawCopy("Same");
+
+    cout << "MASS" << endl;
+    cout << dynamic_rho_mass << endl;
+    fcn_LanBreWig_min = dynamic_rho_mass-150;
+    fcn_LanBreWig_max = dynamic_rho_mass+150;
+
+    //cn_LanBreWig_min = 200;
+    //fcn_LanBreWig_max = 1400;
+
+    TMinuit *gMinuit03 = new TMinuit(3);
+    gMinuit03->SetFCN(raw_fcn_LanBreWig);
+
+    arglist[0] = 1;
+
+    gMinuit03 ->mnexcm("SET ERR", arglist ,1,ierflg);
+
+    vstart[0] = 1.42994e+05;
+    vstart[1] = dynamic_rho_mass;
+    vstart[2] = 1.17107e+02;
+    step[0] = 1;
+    step[1] = 0.1;
+    step[2] = 1;
+    gMinuit03 ->mnparm(0, "a1", vstart[0], step[0], 0,0,ierflg);
+    gMinuit03 ->mnparm(1, "a2", vstart[1], step[1], 0,0,ierflg);
+    gMinuit03 ->mnparm(2, "a3", vstart[2], step[2], 0,0,ierflg);
+
+    arglist[0] = 500;
+    arglist[1] = 1.;
+    gMinuit03 ->mnexcm("MIGRAD", arglist ,2,ierflg);
+
+    //Double_t amin,edm,errdef;
+    //Int_t nvpar,nparx,icstat;
+    gMinuit03 ->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
+
+    gMinuit03 ->GetParameter(0, val1, err1);
+    gMinuit03 ->GetParameter(1, val2, err2);
+    gMinuit03 ->GetParameter(2, val3, err3);
+
+
+    TF1 raw_pure_BreitWigner_fit("raw_pure_BreitWigner_fit", "[0]*TMath::BreitWigner(x,[1],[2])", fcn_LanBreWig_min, fcn_LanBreWig_max);
+    raw_pure_BreitWigner_fit.SetParameters(val1, val2, val3);
+    raw_pure_BreitWigner_fit.SetLineColor(6);
+    raw_pure_BreitWigner_fit.DrawCopy("Same");
+
+    TF1 raw_LanBreWig_fit("raw_LanBreWig_fit", "[0]*TMath::BreitWigner(x,[1],[2]) + [6] + [3]*TMath::Landau(x,[4],[5])", 200, 1400);
+    raw_LanBreWig_fit.SetParameters(val1, val2, val3, raw_landau_fit_parameters[0], raw_landau_fit_parameters[1], raw_landau_fit_parameters[2], raw_landau_fit_parameters[3]);
+    raw_LanBreWig_fit.SetLineColor(2);
+    raw_LanBreWig_fit.DrawCopy("Same");
+
+
+    TMinuit *gMinuit04 = new TMinuit(7);
+    gMinuit04->SetFCN(raw_fcn_LanBreWig_fullfit);
+
+    arglist[0] = 1;
+
+    gMinuit04 ->mnexcm("SET ERR", arglist ,1,ierflg);
+
+    vstart[0] = val1;
+    vstart[1] = val2;
+    vstart[2] = val3;
+    vstart[3] = raw_landau_fit_parameters[0];
+    vstart[4] = raw_landau_fit_parameters[1];
+    vstart[5] = raw_landau_fit_parameters[2];
+    vstart[6] = raw_landau_fit_parameters[3];
+    step[0] = 0.1;
+    step[1] = 0.1;
+    step[2] = 0.1;
+    step[3] = 0.1;
+    step[4] = 0.1;
+    step[5] = 0.1;
+    step[6] = 0.1;
+    gMinuit04 ->mnparm(0, "a1", vstart[0], step[0], 0,0,ierflg);
+    gMinuit04 ->mnparm(1, "a2", vstart[1], step[1], 0,0,ierflg);
+    gMinuit04 ->mnparm(2, "a3", vstart[2], step[2], 0,0,ierflg);
+    gMinuit04 ->mnparm(3, "a4", vstart[3], step[3], 0,0,ierflg);
+    gMinuit04 ->mnparm(4, "a5", vstart[4], step[4], 0,0,ierflg);
+    gMinuit04 ->mnparm(5, "a6", vstart[5], step[5], 0,0,ierflg);
+    gMinuit04 ->mnparm(6, "a7", vstart[6], step[6], 0,0,ierflg);
+
+    arglist[0] = 500;
+    arglist[1] = 1.;
+    gMinuit04 ->mnexcm("MIGRAD", arglist , 2, ierflg);
+
+    //Double_t amin,edm,errdef;
+    //Int_t nvpar,nparx,icstat;
+    gMinuit04 ->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
+
+    gMinuit04 ->GetParameter(0, val1, err1);
+    gMinuit04 ->GetParameter(1, val2, err2);
+    gMinuit04 ->GetParameter(2, val3, err3);
+    gMinuit04 ->GetParameter(3, val4, err4);
+    gMinuit04 ->GetParameter(4, val5, err5);
+    gMinuit04 ->GetParameter(5, val6, err6);
+    gMinuit04 ->GetParameter(6, val7, err7);
+
+    TF1 raw_LanBreWig_truefit("raw_LanBreWig_truefit", "[0]*TMath::BreitWigner(x,[1],[2]) + [6] + [3]*TMath::Landau(x,[4],[5])", 200, 1400);
+    raw_LanBreWig_truefit.SetParameters(val1, val2, val3, val4, val5, val6, val7);
+    raw_LanBreWig_truefit.SetLineColor(3);
+    raw_LanBreWig_truefit.DrawCopy("Same");
+
+    TF1 raw_final_Landau_fit("raw_final_Landau_fit", "[3] + [0]*TMath::Landau(x,[1],[2])", 200, 1400);
+    raw_final_Landau_fit.SetParameters(val4, val5, val6, val7);
+    raw_final_Landau_fit.SetLineColor(4);
+    raw_final_Landau_fit.DrawCopy("Same");
+
+    TF1 raw_BreitWigner_fit("raw_BreitWigner_fit", "[0]*TMath::BreitWigner(x,[1],[2])", 200, 1400);
+    raw_BreitWigner_fit.SetParameters(val1, val2, val3);
+    raw_BreitWigner_fit.SetLineColor(5);
+    raw_BreitWigner_fit.DrawCopy("Same");
+
+
+    TLine K_gap_line_1 = TLine(static_K_mass-raw_K_radius, 0, static_K_mass-raw_K_radius, 1.1*raw_projection->GetMaximum());
+    K_gap_line_1.DrawClone();
+
+    TLine K_gap_line_2 = TLine(static_K_mass+raw_K_radius, 0, static_K_mass+raw_K_radius, 1.1*raw_projection->GetMaximum());
+    K_gap_line_2.DrawClone();
+
 
 
     TF1 raw_K_fit("raw_K_fit", "[0]*TMath::Gaus(x,[1],[2])", 500, 3000);
     raw_K_fit.SetParameters(1000, static_K_mass, 100);
-    raw_projection->Fit(&raw_K_fit, "","",static_K_mass-25,static_K_mass+25);
+    raw_projection->Fit(&raw_K_fit, "","",static_K_mass-raw_K_radius,static_K_mass+raw_K_radius);
 
 
+    auto main = new TCanvas("Canvas4","Canvas4");
+    rho_masses->Draw("Colz");
  
 
     auto projections = new TCanvas("Canvas5","Canvas5");
@@ -794,40 +1052,43 @@ void BreitWigner_analysis() {
     while (difference > i*0.0001) {
 
         projection = rho_masses->ProjectionX("X_projection", (dynamic_rho_mass-allowed_rho_mass_difference-200)/6, (dynamic_rho_mass+allowed_rho_mass_difference-200)/6);
-        
         //projection = rho_masses->ProjectionX("X_projection");
-        projection->Draw();
 
+        projection->Draw();
 
 /////////////////////////////////////
 
         //peak_bin = projection->GetMaximumBin();
         //peak = projection->GetBinCenter(peak_bin);
 
-        fcn_BreitWigner_min = dynamic_rho_mass - 80;
-        fcn_BreitWigner_max = dynamic_rho_mass + 80;
+        //fcn_BreitWigner_min = dynamic_rho_mass - 80;
+        //fcn_BreitWigner_max = dynamic_rho_mass + 80;
+
+        fcn_gaussian_min = dynamic_rho_mass - 80;
+        fcn_gaussian_max = dynamic_rho_mass + 80;
 
         TMinuit *gMinuit1 = new TMinuit(3);
         gMinuit1->Command("SET PRINT -1");
         gMinuit1->Command("SET NOWarnings");
-        gMinuit1->SetFCN(fcn_BreitWigner);
+        gMinuit1->SetFCN(fcn_gaussian);
 
-        Double_t arglist1[10];
-        Int_t ierflg1 = 0;
+        arglist[0] = 1;
 
-        arglist1[0] = 1;
+        gMinuit1->mnexcm("SET ERR", arglist ,1,ierflg);
 
-        gMinuit1->mnexcm("SET ERR", arglist1 ,1,ierflg1);
+        vstart[0] = 6.16160e+02;
+        vstart[1] = dynamic_rho_mass;
+        vstart[2] = 1.17525e+02;
+        step[0] = 1;
+        step[1] = 1;
+        step[2] = 1;
+        gMinuit1->mnparm(0, "a1", vstart[0], step[0], 0,0,ierflg);
+        gMinuit1->mnparm(1, "a2", vstart[1], step[1], 0,0,ierflg);
+        gMinuit1->mnparm(2, "a3", vstart[2], step[2], 0,0,ierflg);
 
-        static Double_t vstart1[4] = {6.16160e+02, dynamic_rho_mass, 1.17525e+02};
-        static Double_t step1[4] = {1, 1, 1};
-        gMinuit1->mnparm(0, "a1", vstart1[0], step1[0], 0,0,ierflg1);
-        gMinuit1->mnparm(1, "a2", vstart1[1], step1[1], 0,0,ierflg1);
-        gMinuit1->mnparm(2, "a3", vstart1[2], step1[2], 0,0,ierflg1);
-
-        arglist1[0] = 500;
-        arglist1[1] = 1.;
-        gMinuit1->mnexcm("MIGRAD", arglist1 ,2,ierflg1);
+        arglist[0] = 500;
+        arglist[1] = 1.;
+        gMinuit1->mnexcm("MIGRAD", arglist ,2,ierflg);
 
         gMinuit1->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
 
@@ -874,56 +1135,64 @@ void BreitWigner_analysis() {
         std_dev_errors[1] = err3;
 
         ++i;
-
         if (i > 1000) {
             break;
         }
     }
 
-    TF1 BreitWigner_fit("BreitWigner_fit", "[0]*TMath::BreitWigner(x,[1],[2])", fcn_BreitWigner_min, fcn_BreitWigner_max);
-    BreitWigner_fit.SetParameters(val1, val2, val3);
-    BreitWigner_fit.SetLineColor(3);
-    BreitWigner_fit.DrawCopy("Same");
+    //TF1 gaussia_fit("gaussia_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass-80, dynamic_rho_mass+80);
+    //gaussia_fit.SetParameters(val1, val2, val3);
+    //gaussia_fit.DrawCopy("Same");
 
-    TF1 BreitWigner_fit_dots_1("BreitWigner_fit_dots_1", "[0]*TMath::BreitWigner(x,[1],[2])", 200, fcn_BreitWigner_max);
-    BreitWigner_fit_dots_1.SetParameters(val1, val2, val3);
-    BreitWigner_fit_dots_1.SetLineColor(3);
-    BreitWigner_fit_dots_1.SetLineStyle(2);
-    BreitWigner_fit_dots_1.DrawCopy("Same");
+    //TF1 old_BreitWigner_fit("BreitWigner_fit", "[0]*TMath::BreitWigner(x,[1],[2])", fcn_BreitWigner_min, fcn_BreitWigner_max);
+    //old_BreitWigner_fit.SetParameters(val1, val2, val3);
+    //old_BreitWigner_fit.SetLineColor(3);
+    //old_BreitWigner_fit.DrawCopy("Same");
 
-    TF1 BreitWigner_fit_dots_2("BreitWigner_fit_dots_2", "[0]*TMath::BreitWigner(x,[1],[2])", fcn_BreitWigner_min, 1400);
-    BreitWigner_fit_dots_2.SetParameters(val1, val2, val3);
-    BreitWigner_fit_dots_2.SetLineColor(3);
-    BreitWigner_fit_dots_2.SetLineStyle(2);
-    BreitWigner_fit_dots_2.DrawCopy("Same");
+    //TF1 BreitWigner_fit_dots_1("BreitWigner_fit_dots_1", "[0]*TMath::BreitWigner(x,[1],[2])", 200, fcn_BreitWigner_max);
+    //BreitWigner_fit_dots_1.SetParameters(val1, val2, val3);
+    //BreitWigner_fit_dots_1.SetLineColor(3);
+    //BreitWigner_fit_dots_1.SetLineStyle(2);
+    //BreitWigner_fit_dots_1.DrawCopy("Same");
+
+    //TF1 BreitWigner_fit_dots_2("BreitWigner_fit_dots_2", "[0]*TMath::BreitWigner(x,[1],[2])", fcn_BreitWigner_min, 1400);
+    //BreitWigner_fit_dots_2.SetParameters(val1, val2, val3);
+    //BreitWigner_fit_dots_2.SetLineColor(3);
+    //BreitWigner_fit_dots_2.SetLineStyle(2);
+    //BreitWigner_fit_dots_2.DrawCopy("Same");
 
 //////////////////////
 //          LANDAU
 //////////////////////
     
-    fcn_Landau_min = dynamic_rho_mass-200;
-    fcn_Landau_max = dynamic_rho_mass+200;
+    fcn_Landau_K_gap_min = static_K_mass-K_radius;
+    fcn_Landau_K_gap_max = static_K_mass+K_radius;
+    fcn_Landau_rho_gap_min = dynamic_rho_mass-150;
+    fcn_Landau_rho_gap_max = dynamic_rho_mass+150;
 
     TMinuit *gMinuit3 = new TMinuit(4);
     gMinuit3->SetFCN(fcn_Landau);
 
-    Double_t arglist3[10];
-    Int_t ierflg3 = 0;
+    arglist[0] = 1;
 
-    arglist3[0] = 1;
+    gMinuit3 ->mnexcm("SET ERR", arglist ,1,ierflg);
 
-    gMinuit3 ->mnexcm("SET ERR", arglist3 ,1,ierflg3);
+    vstart[0] = 3.28034e+03;
+    vstart[1] = dynamic_rho_mass;
+    vstart[2] = 7.82408e+01;
+    vstart[3] = 0;
+    step[0] = 1;
+    step[1] = 0.1;
+    step[2] = 1;
+    step[3] = 1;
+    gMinuit3 ->mnparm(0, "a1", vstart[0], step[0], 0,0,ierflg);
+    gMinuit3 ->mnparm(1, "a2", vstart[1], step[1], 0,0,ierflg);
+    gMinuit3 ->mnparm(2, "a3", vstart[2], step[2], 0,0,ierflg);
+    gMinuit3 ->mnparm(3, "a4", vstart[3], step[3], 0,0,ierflg);
 
-    static Double_t vstart3[4] = {3.28034e+03, dynamic_rho_mass, 7.82408e+01, 0};
-    static Double_t step3[4] = {1, 0.1, 1, 1};
-    gMinuit3 ->mnparm(0, "a1", vstart3[0], step3[0], 0,0,ierflg3);
-    gMinuit3 ->mnparm(1, "a2", vstart3[1], step3[1], 0,0,ierflg3);
-    gMinuit3 ->mnparm(2, "a3", vstart3[2], step3[2], 0,0,ierflg3);
-    gMinuit3 ->mnparm(3, "a4", vstart3[3], step3[3], 0,0,ierflg3);
-
-    arglist3[0] = 500;
-    arglist3[1] = 1.;
-    gMinuit3 ->mnexcm("MIGRAD", arglist3 ,2,ierflg3);
+    arglist[0] = 500;
+    arglist[1] = 1.;
+    gMinuit3 ->mnexcm("MIGRAD", arglist ,2,ierflg);
 
     //Double_t amin,edm,errdef;
     //Int_t nvpar,nparx,icstat;
@@ -938,10 +1207,12 @@ void BreitWigner_analysis() {
     std_dev_values[3] = val3;
     std_dev_errors[3] = err3;
 
+    Double_t landau_fit_parameters[4] = {val1, val2, val3, val4};
+
     TF1 Landau_fit("Landau_fit", "[3] + [0]*TMath::Landau(x,[1],[2])", 200, 1400);
-    Landau_fit.SetParameters(val1, val2, val3, val4);
-    Landau_fit.SetLineColor(4);
-    Landau_fit.DrawCopy("Same");
+    //Landau_fit.SetParameters(val1, val2, val3, val4);
+    //Landau_fit.SetLineColor(4);
+    //Landau_fit.DrawCopy("Same");
 
     LanBreWig_parameters[0] = val1;
     LanBreWig_parameters[1] = val2;
@@ -952,28 +1223,29 @@ void BreitWigner_analysis() {
 //          LANDAU + BreitWigner
 //////////////////////
 
-    fcn_LanBreWig_min = dynamic_rho_mass-200;
-    fcn_LanBreWig_max = dynamic_rho_mass+200;
+    fcn_LanBreWig_min = dynamic_rho_mass-150;
+    fcn_LanBreWig_max = dynamic_rho_mass+150;
 
     TMinuit *gMinuit4 = new TMinuit(3);
     gMinuit4->SetFCN(fcn_LanBreWig);
 
-    Double_t arglist4[10];
-    Int_t ierflg4 = 0;
+    arglist[0] = 1;
 
-    arglist4[0] = 1;
+    gMinuit4 ->mnexcm("SET ERR", arglist ,1,ierflg);
 
-    gMinuit4 ->mnexcm("SET ERR", arglist4 ,1,ierflg4);
+    vstart[0] = 100;
+    vstart[1] = dynamic_rho_mass;
+    vstart[2] = 300;
+    step[0] = 1;
+    step[1] = 0.1;
+    step[2] = 1;
+    gMinuit4 ->mnparm(0, "a1", vstart[0], step[0], 0,0,ierflg);
+    gMinuit4 ->mnparm(1, "a2", vstart[1], step[1], 0,0,ierflg);
+    gMinuit4 ->mnparm(2, "a3", vstart[2], step[2], 0,0,ierflg);
 
-    static Double_t vstart4[4] = {100, dynamic_rho_mass, 300};
-    static Double_t step4[4] = {1, 0.1, 1, 1};
-    gMinuit4 ->mnparm(0, "a1", vstart4[0], step4[0], 0,0,ierflg4);
-    gMinuit4 ->mnparm(1, "a2", vstart4[1], step4[1], 0,0,ierflg4);
-    gMinuit4 ->mnparm(2, "a3", vstart4[2], step4[2], 0,0,ierflg4);
-
-    arglist4[0] = 500;
-    arglist4[1] = 1.;
-    gMinuit4 ->mnexcm("MIGRAD", arglist4 ,2,ierflg4);
+    arglist[0] = 500;
+    arglist[1] = 1.;
+    gMinuit4 ->mnexcm("MIGRAD", arglist ,2,ierflg);
 
     //Double_t amin,edm,errdef;
     //Int_t nvpar,nparx,icstat;
@@ -984,17 +1256,81 @@ void BreitWigner_analysis() {
     gMinuit4 ->GetParameter(2, val3, err3);
 
     TF1 pure_BreitWigner_fit("pure_BreitWigner_fit", "[0]*TMath::BreitWigner(x,[1],[2])", fcn_LanBreWig_min, fcn_LanBreWig_max);
-    pure_BreitWigner_fit.SetParameters(val1, val2, val3);
-    pure_BreitWigner_fit.SetLineColor(5);
-    pure_BreitWigner_fit.DrawCopy("Same");
+    //pure_BreitWigner_fit.SetParameters(val1, val2, val3);
+    //pure_BreitWigner_fit.SetLineColor(5);
+    //pure_BreitWigner_fit.DrawCopy("Same");
 
     TF1 LanBreWig_fit("LanBreWig_fit", "[0]*TMath::BreitWigner(x,[1],[2]) + [6] + [3]*TMath::Landau(x,[4],[5])", 200, 1400);
-    LanBreWig_fit.SetParameters(val1, val2, val3, Landau_fit.GetParameter(0), Landau_fit.GetParameter(1), Landau_fit.GetParameter(2), Landau_fit.GetParameter(3));
-    LanBreWig_fit.SetLineColor(6);
-    LanBreWig_fit.DrawCopy("Same");
+    //LanBreWig_fit.SetParameters(val1, val2, val3, landau_fit_parameters[0], landau_fit_parameters[1], landau_fit_parameters[2], landau_fit_parameters[3]);
+    //LanBreWig_fit.SetLineColor(6);
+    //LanBreWig_fit.DrawCopy("Same");
 
-    
-    
+
+//////////////////////
+//          LANDAU + BreitWigner FULLFIT
+//////////////////////  
+
+    TMinuit *gMinuit5 = new TMinuit(7);
+    gMinuit5->SetFCN(fcn_LanBreWig_fullfit);
+
+    arglist[0] = 1;
+
+    gMinuit5 ->mnexcm("SET ERR", arglist ,1,ierflg);
+
+    vstart[0] = val1;
+    vstart[1] = val2;
+    vstart[2] = val3;
+    vstart[3] = landau_fit_parameters[0];
+    vstart[4] = landau_fit_parameters[1];
+    vstart[5] = landau_fit_parameters[2];
+    vstart[6] = landau_fit_parameters[3];
+    step[0] = 0.1;
+    step[1] = 0.1;
+    step[2] = 0.1;
+    step[3] = 0.1;
+    step[4] = 0.1;
+    step[5] = 0.1;
+    step[6] = 0.1;
+    gMinuit5 ->mnparm(0, "a1", vstart[0], step[0], 0,0,ierflg);
+    gMinuit5 ->mnparm(1, "a2", vstart[1], step[1], 0,0,ierflg);
+    gMinuit5 ->mnparm(2, "a3", vstart[2], step[2], 0,0,ierflg);
+    gMinuit5 ->mnparm(3, "a4", vstart[3], step[3], 0,0,ierflg);
+    gMinuit5 ->mnparm(4, "a5", vstart[4], step[4], 0,0,ierflg);
+    gMinuit5 ->mnparm(5, "a6", vstart[5], step[5], 0,0,ierflg);
+    gMinuit5 ->mnparm(6, "a7", vstart[6], step[6], 0,0,ierflg);
+
+    arglist[0] = 500;
+    arglist[1] = 1.;
+    gMinuit5 ->mnexcm("MIGRAD", arglist , 2, ierflg);
+
+    //Double_t amin,edm,errdef;
+    //Int_t nvpar,nparx,icstat;
+    gMinuit5 ->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
+
+    gMinuit5 ->GetParameter(0, val1, err1);
+    gMinuit5 ->GetParameter(1, val2, err2);
+    gMinuit5 ->GetParameter(2, val3, err3);
+    gMinuit5 ->GetParameter(3, val4, err4);
+    gMinuit5 ->GetParameter(4, val5, err5);
+    gMinuit5 ->GetParameter(5, val6, err6);
+    gMinuit5 ->GetParameter(6, val7, err7);
+
+    TF1 LanBreWig_truefit("LanBreWig_fit", "[0]*TMath::BreitWigner(x,[1],[2]) + [6] + [3]*TMath::Landau(x,[4],[5])", 200, 1400);
+    LanBreWig_truefit.SetParameters(val1, val2, val3, val4, val5, val6, val7);
+    LanBreWig_truefit.SetLineColor(6);
+    LanBreWig_truefit.DrawCopy("Same");
+
+    Landau_fit.SetParameters(val4, val5, val6, val7);
+    Landau_fit.SetLineColor(4);
+    Landau_fit.DrawCopy("Same");
+
+    TF1 BreitWigner_fit("BreitWigner_fit", "[0]*TMath::BreitWigner(x,[1],[2])", 200, 1400);
+    BreitWigner_fit.SetParameters(val1, val2, val3);
+    BreitWigner_fit.SetLineColor(2);
+    BreitWigner_fit.DrawCopy("Same");
+
+
+
 ////////////////////////////////////////////
 ////////////////////////////////////////////
 
@@ -1006,22 +1342,21 @@ void BreitWigner_analysis() {
     TMinuit *gMinuit2 = new TMinuit(3);
     gMinuit2->SetFCN(fcn_BreitWigner);
 
-    Double_t arglist2[10];
-    Int_t ierflg2 = 0;
+    Double_t arglist[10];
 
-    arglist2[0] = 1;
+    arglist[0] = 1;
 
-    gMinuit2 ->mnexcm("SET ERR", arglist2 ,1,ierflg2);
+    gMinuit2 ->mnexcm("SET ERR", arglist ,1,ierflg);
 
     static Double_t vstart2[4] = {3.26161e+05, dynamic_rho_mass, 3.42154e+02};
     static Double_t step2[4] = {1, 1, 1};
-    gMinuit2 ->mnparm(0, "a1", vstart2[0], step2[0], 0,0,ierflg2);
-    gMinuit2 ->mnparm(1, "a2", vstart2[1], step2[1], 0,0,ierflg2);
-    gMinuit2 ->mnparm(2, "a3", vstart2[2], step2[2], 0,0,ierflg2);
+    gMinuit2 ->mnparm(0, "a1", vstart2[0], step2[0], 0,0,ierflg);
+    gMinuit2 ->mnparm(1, "a2", vstart2[1], step2[1], 0,0,ierflg);
+    gMinuit2 ->mnparm(2, "a3", vstart2[2], step2[2], 0,0,ierflg);
 
-    arglist2[0] = 500;
-    arglist2[1] = 1.;
-    gMinuit2 ->mnexcm("MIGRAD", arglist2 ,2,ierflg2);
+    arglist[0] = 500;
+    arglist[1] = 1.;
+    gMinuit2 ->mnexcm("MIGRAD", arglist ,2,ierflg);
 
     //Double_t amin,edm,errdef;
     //Int_t nvpar,nparx,icstat;
@@ -1063,23 +1398,21 @@ void BreitWigner_analysis() {
     TMinuit *gMinuit3 = new TMinuit(4);
     gMinuit3->SetFCN(fcn_Landau);
 
-    Double_t arglist3[10];
-    Int_t ierflg3 = 0;
 
-    arglist3[0] = 1;
+    arglist[0] = 1;
 
-    gMinuit3 ->mnexcm("SET ERR", arglist3 ,1,ierflg3);
+    gMinuit3 ->mnexcm("SET ERR", arglist ,1,ierflg);
 
     static Double_t vstart3[4] = {3.28034e+03, 7.12024e+02, 7.82408e+01, 0};
     static Double_t step3[4] = {1, 0.1, 1, 1};
-    gMinuit3 ->mnparm(0, "a1", vstart3[0], step3[0], 0,0,ierflg3);
-    gMinuit3 ->mnparm(1, "a2", vstart3[1], step3[1], 0,0,ierflg3);
-    gMinuit3 ->mnparm(2, "a3", vstart3[2], step3[2], 0,0,ierflg3);
-    gMinuit3 ->mnparm(3, "a4", vstart3[3], step3[3], 0,0,ierflg3);
+    gMinuit3 ->mnparm(0, "a1", vstart3[0], step3[0], 0,0,ierflg);
+    gMinuit3 ->mnparm(1, "a2", vstart3[1], step3[1], 0,0,ierflg);
+    gMinuit3 ->mnparm(2, "a3", vstart3[2], step3[2], 0,0,ierflg);
+    gMinuit3 ->mnparm(3, "a4", vstart3[3], step3[3], 0,0,ierflg);
 
-    arglist3[0] = 500;
-    arglist3[1] = 1.;
-    gMinuit3 ->mnexcm("MIGRAD", arglist3 ,2,ierflg3);
+    arglist[0] = 500;
+    arglist[1] = 1.;
+    gMinuit3 ->mnexcm("MIGRAD", arglist ,2,ierflg);
 
     //Double_t amin,edm,errdef;
     //Int_t nvpar,nparx,icstat;
@@ -1141,8 +1474,8 @@ void BreitWigner_analysis() {
     BreitWigner_fit_raw_scaled_dots_2.DrawCopy("Same");
 
     BreitWigner_fit.DrawCopy("Same");
-    BreitWigner_fit_dots_1.DrawCopy("Same");
-    BreitWigner_fit_dots_2.DrawCopy("Same");
+    //BreitWigner_fit_dots_1.DrawCopy("Same");
+    //BreitWigner_fit_dots_2.DrawCopy("Same");
 
 
     TLegend leg(.7,.45,.9,.8,"");
