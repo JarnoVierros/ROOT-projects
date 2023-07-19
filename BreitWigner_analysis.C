@@ -501,8 +501,8 @@ void BreitWigner_analysis() {
         monte_carlo = true;
     }
 
-    const float pion_mass = 139.57039;
-    const float static_rho_mass = 720; //720, 770
+    const float pion_mass = 139.57021;//139.57039
+    const float static_rho_mass = 775.02; //720, 770
     float dynamic_rho_mass = static_rho_mass;
     const float static_K_mass = 4.98244e+02;
 
@@ -555,6 +555,7 @@ void BreitWigner_analysis() {
     auto origin_m_vs_rho1_m_supercut = new TH2F("origin_m_vs_rho1_m_supercut", "Mass of the four track origin compared with mass of first rho particle with supercuts;origin mass/MeV;rho1 mass/MeV",200,1000,3000,200,200,1400);
 
     gStyle->SetOptStat(0);
+    gStyle->SetPalette(kCividis);
     rho_masses->Sumw2();
     rho_masses_raw->Sumw2();
     origin_m_vs_rho1_m_supercut->Sumw2();
@@ -765,21 +766,21 @@ void BreitWigner_analysis() {
     float peak2 = -1;
     while (difference > i*0.0005) {
 
-        raw_fcn_BreitWigner_min = dynamic_rho_mass - 80;
-        raw_fcn_BreitWigner_max = dynamic_rho_mass + 80;
+        raw_fcn_gaussian_min = dynamic_rho_mass - 60;
+        raw_fcn_gaussian_max = dynamic_rho_mass + 60;
 
         TMinuit *gMinuit0 = new TMinuit(3);
         gMinuit0->Command("SET PRINT -1");
         //gMinuit0->Command("SET NOWarnings");
-        gMinuit0->SetFCN(raw_fcn_BreitWigner);
+        gMinuit0->SetFCN(raw_fcn_gaussian);
 
         arglist[0] = 1;
 
         gMinuit0->mnexcm("SET ERR", arglist ,1,ierflg);
 
-        vstart[0] = 1.52062e+05;
+        vstart[0] = 2000;
         vstart[1] = dynamic_rho_mass;
-        vstart[2] = 300;
+        vstart[2] = 50;
         step[0] = 1;
         step[1] = 1;
         step[2] = 1;
@@ -844,6 +845,10 @@ void BreitWigner_analysis() {
             break;
         }
     }
+
+    TF1 raw_gaussia_fit("raw_gaussia_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - 60, dynamic_rho_mass + 60);
+    raw_gaussia_fit.SetParameters(val1, val2, val3);
+    raw_gaussia_fit.DrawCopy("Same");
 
 /*
     TF1 BreitWigner_fit_raw("BreitWigner_fit_raw", "[0]*TMath::BreitWigner(x,[1],[2])", raw_fcn_BreitWigner_min, raw_fcn_BreitWigner_max);
@@ -1020,9 +1025,11 @@ void BreitWigner_analysis() {
     Double_t raw_fit_params[7] = {val1, val2, val3, val4, val5, val6, val7};
 
     TLine K_gap_line_1 = TLine(static_K_mass-raw_K_radius, 0, static_K_mass-raw_K_radius, 1.1*raw_projection->GetMaximum());
+    K_gap_line_1.SetLineColor(2);
     K_gap_line_1.DrawClone();
 
     TLine K_gap_line_2 = TLine(static_K_mass+raw_K_radius, 0, static_K_mass+raw_K_radius, 1.1*raw_projection->GetMaximum());
+    K_gap_line_2.SetLineColor(2);
     K_gap_line_2.DrawClone();
 
 
@@ -1076,9 +1083,9 @@ void BreitWigner_analysis() {
 
         gMinuit1->mnexcm("SET ERR", arglist ,1,ierflg);
 
-        vstart[0] = 6.16160e+02;
+        vstart[0] = 300;
         vstart[1] = dynamic_rho_mass;
-        vstart[2] = 1.17525e+02;
+        vstart[2] = 50;
         step[0] = 1;
         step[1] = 1;
         step[2] = 1;
@@ -1139,6 +1146,10 @@ void BreitWigner_analysis() {
             break;
         }
     }
+
+    TF1 gaussia_fit("gaussia_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - 60, dynamic_rho_mass + 60);
+    gaussia_fit.SetParameters(val1, val2, val3);
+    gaussia_fit.DrawCopy("Same");
 
     //TF1 gaussia_fit("gaussia_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass-80, dynamic_rho_mass+80);
     //gaussia_fit.SetParameters(val1, val2, val3);
@@ -1448,6 +1459,8 @@ void BreitWigner_analysis() {
     raw_projection_scaled->SetYTitle("Events / 6 MeV");
     raw_projection_scaled->SetXTitle("Mass (MeV)");
     raw_projection_scaled->SetLineColor(kBlue+3);
+    raw_projection_scaled->SetMarkerColor(kBlue+3);
+    raw_projection_scaled->SetMarkerStyle(5);
     raw_projection_scaled->Draw("Same");
 
 
@@ -1457,6 +1470,7 @@ void BreitWigner_analysis() {
     TF1 raw_LanBreWig_truefit_scaled_1("raw_LanBreWig_fit_scaled", "[0]*TMath::BreitWigner(x,[1],[2]) + [6] + [3]*TMath::Landau(x,[4],[5])", 200, static_K_mass-raw_K_radius);
     raw_LanBreWig_truefit_scaled_1.SetParameters(raw_scale*raw_fit_params[0], raw_fit_params[1], raw_fit_params[2], raw_scale*raw_fit_params[3], raw_fit_params[4], raw_fit_params[5], raw_scale*raw_fit_params[6]);
     raw_LanBreWig_truefit_scaled_1.SetLineColor(kBlue-4);
+    raw_LanBreWig_truefit_scaled_1.SetLineStyle(10);
     raw_LanBreWig_truefit_scaled_1.DrawCopy("Same");
 
     TF1 raw_LanBreWig_truefit_scaled_2("raw_LanBreWig_fit_scaled", "[0]*TMath::BreitWigner(x,[1],[2]) + [6] + [3]*TMath::Landau(x,[4],[5])", static_K_mass-raw_K_radius, static_K_mass+raw_K_radius);
@@ -1468,6 +1482,7 @@ void BreitWigner_analysis() {
     TF1 raw_LanBreWig_truefit_scaled_3("raw_LanBreWig_fit_scaled", "[0]*TMath::BreitWigner(x,[1],[2]) + [6] + [3]*TMath::Landau(x,[4],[5])", static_K_mass+raw_K_radius, 1400);
     raw_LanBreWig_truefit_scaled_3.SetParameters(raw_scale*raw_fit_params[0], raw_fit_params[1], raw_fit_params[2], raw_scale*raw_fit_params[3], raw_fit_params[4], raw_fit_params[5], raw_scale*raw_fit_params[6]);
     raw_LanBreWig_truefit_scaled_3.SetLineColor(kBlue-4);
+    raw_LanBreWig_truefit_scaled_3.SetLineStyle(10);
     raw_LanBreWig_truefit_scaled_3.DrawCopy("Same");
 
     TF1 raw_Landau_fit_scaled("raw_Landau_fit_scaled", "[3] + [0]*TMath::Landau(x,[1],[2])", 200, 1400);
@@ -1478,7 +1493,7 @@ void BreitWigner_analysis() {
     TF1 BreitWigner_fit_raw_scaled("BreitWigner_fit_raw_scaled", "[0]*TMath::BreitWigner(x,[1],[2])", 200, 1400);
     BreitWigner_fit_raw_scaled.SetParameters(raw_scale*raw_fit_params[0], raw_fit_params[1], raw_fit_params[2]);
     BreitWigner_fit_raw_scaled.SetLineColor(kCyan);
-    BreitWigner_fit_raw_scaled.SetLineStyle(9);
+    BreitWigner_fit_raw_scaled.SetLineStyle(8);
     BreitWigner_fit_raw_scaled.DrawCopy("Same");
 
 
@@ -1514,7 +1529,7 @@ void BreitWigner_analysis() {
     TLegend leg(.7,.3,.9,.9,"");
     leg.SetFillColor(0);
     leg.SetTextSize(0.025);
-    leg.AddEntry(raw_projection_scaled,"raw data", "LE");
+    leg.AddEntry(raw_projection_scaled,"raw data");
     //TString entry_string = "#splitline{BreitWigner fit}{#splitline{peak at "+rounded(peak_values[0], 0)+"#pm"+rounded(peak_errors[0], 0)+"}{std. dev. "+rounded(std_dev_values[0], -1)+"#pm"+rounded(std_dev_errors[0], -1)+"}}";
     //leg.AddEntry(&BreitWigner_fit_raw_scaled, entry_string);
     leg.AddEntry(&raw_LanBreWig_truefit_scaled_3, "#splitline{BreitWigner fit with}{#splitline{Landau background}{on raw data}}");
@@ -1537,24 +1552,31 @@ void BreitWigner_analysis() {
     rho_masses_raw->Draw("Colz");
 
     TLine rho_masses_raw_line1 = TLine(200, dynamic_rho_mass-allowed_rho_mass_difference, 1400, dynamic_rho_mass-allowed_rho_mass_difference);
+    rho_masses_raw_line1.SetLineColor(2);
     rho_masses_raw_line1.DrawClone();
 
     TLine rho_masses_raw_line2 = TLine(200, dynamic_rho_mass+allowed_rho_mass_difference, 1400, dynamic_rho_mass+allowed_rho_mass_difference);
+    rho_masses_raw_line2.SetLineColor(2);
     rho_masses_raw_line2.DrawClone();
 
     TArrow arrow1(850,550,750,710,0.02,"|>");
     arrow1.SetLineWidth(3);
+    arrow1.SetLineColor(0);
+    //arrow1.SetFillColor(0);
     arrow1.DrawClone();
 
-    TLatex text1(860,500,"\\rho");
+    TLatex text1(860,500,"#rho");
+    text1.SetTextColor(0);
     text1.DrawClone();
 
 
     TArrow arrow2(350,350,450,450,0.02,"|>");
     arrow2.SetLineWidth(3);
+    arrow2.SetLineColor(0);
     arrow2.DrawClone();
 
     TLatex text2(290,300,"K^{0}_{s}");
+    text2.SetTextColor(0);
     text2.DrawClone();
 
     CMS_lumi(raw, 17, 33);
@@ -1578,6 +1600,7 @@ void BreitWigner_analysis() {
     CMS_lumi(dxy_maximum, 17, 33);
 
     TLine line21 = TLine(allowed_greatest_dxy, 200, allowed_greatest_dxy, 1400);
+    line21.SetLineColor(2);
     line21.DrawClone();
 
     auto dz_maximum = new TCanvas("dz_maximum_canvas","dz_maximum_canvas");
@@ -1585,6 +1608,7 @@ void BreitWigner_analysis() {
     CMS_lumi(dz_maximum, 17, 33);
 
     TLine line22 = TLine(allowed_greatest_dz, 200, allowed_greatest_dz, 1400);
+    line22.SetLineColor(2);
     line22.DrawClone();
 
     auto dxy_maximum_distribution = new TCanvas("dxy_maximum_distribution_canvas","dxy_maximum_distribution_canvas");
@@ -1771,9 +1795,11 @@ void BreitWigner_analysis() {
     origin_m_vs_rho1_m_supercut->Draw("Colz");
 
     TLine line1 = TLine(1000, dynamic_rho_mass-allowed_rho_mass_difference_supercut, 3000, dynamic_rho_mass-allowed_rho_mass_difference_supercut);
+    line1.SetLineColor(2);
     line1.DrawClone();
 
     TLine line2 = TLine(1000, dynamic_rho_mass+allowed_rho_mass_difference_supercut, 3000, dynamic_rho_mass+allowed_rho_mass_difference_supercut);
+    line2.SetLineColor(2);
     line2.DrawClone();
 
     auto origin_projection_supercut_canvas = new TCanvas("Canvas15","Canvas15");
