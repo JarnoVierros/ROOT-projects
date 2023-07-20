@@ -502,7 +502,7 @@ void BreitWigner_analysis() {
     }
 
     const float pion_mass = 139.57021;//139.57039
-    const float static_rho_mass = 775.02; //720, 770
+    const float static_rho_mass = 729; //720, 770, 743, 775.02
     float dynamic_rho_mass = static_rho_mass;
     const float static_K_mass = 4.98244e+02;
 
@@ -510,13 +510,15 @@ void BreitWigner_analysis() {
     const float allowed_py_difference = 200;
     const float allowed_dxy_variance = 0.15;
     const float allowed_dz_variance = 0.2;
-    const float allowed_rho_mass_difference = 150;
+    float allowed_rho_mass_difference = 212.210888;
     const float allowed_rho_mass_difference_supercut = 50;
     const float K_radius = 25;
     const float raw_K_radius = 35;
 
-    const float allowed_greatest_dxy = 0.2; //0.2
-    const float allowed_greatest_dz = 0.5; //0.6
+    float allowed_greatest_dxy = 0.2; //0.2
+    float allowed_greatest_dz = 0.5; //0.6
+
+    map<string, Double_t> results;
 
     TFile *file = TFile::Open(filename.c_str());
     TTree* tree = (TTree*)file->Get("tree");
@@ -738,17 +740,108 @@ void BreitWigner_analysis() {
     lower_limit_y.DrawClone();
 */
 
+    auto raw_secondary_projection_canvas = new TCanvas("raw_secondary_projection_canvas","raw_secondary_projection_canvas");
+    auto raw_secondary_projection = rho_masses->ProjectionY("Y_projection_raw");
+    raw_secondary_projection->Draw();
+
+    float secondary_rho_peak = 7.36088e+02;
+    float secondary_rho_min = secondary_rho_peak - 40;
+    float secondary_rho_max = secondary_rho_peak + 40;
+
+    TF1 secondary_gaussian_fit("secondary_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", secondary_rho_min, secondary_rho_max);
+    secondary_gaussian_fit.SetParameters(6.54848e+02, secondary_rho_peak, 7.43751e+01);
+    raw_secondary_projection->Fit(&secondary_gaussian_fit, "","",secondary_rho_min, secondary_rho_max);
+    secondary_gaussian_fit.DrawCopy("Same");
+
+    allowed_rho_mass_difference = 3*secondary_gaussian_fit.GetParameter(2);
+
+    results["secondary_rho_gaussian_fit_peak"] = secondary_gaussian_fit.GetParameter(1);
+    results["secondary_rho_gaussian_fit_std_dev"] = secondary_gaussian_fit.GetParameter(2);
+
+
+    auto dxy_maximum_distribution = new TCanvas("dxy_maximum_distribution_canvas","dxy_maximum_distribution_canvas");
+    dxy_maximum_rho_distribution->Draw();
+
+    float dxy_distribution_peak = 1.51457e-01;
+    float dxy_distribution_fit_range = 0.05;
+    TF1 dxy_distribution_gaussian_fit("dxy_distribution_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dxy_distribution_peak-dxy_distribution_fit_range, dxy_distribution_peak+dxy_distribution_fit_range);
+    dxy_distribution_gaussian_fit.SetParameters(1.56550e+03, dxy_distribution_peak, 4.40377e-02);
+    dxy_maximum_rho_distribution->Fit(&dxy_distribution_gaussian_fit, "","",dxy_distribution_peak-dxy_distribution_fit_range, dxy_distribution_peak+dxy_distribution_fit_range);
+    secondary_gaussian_fit.DrawCopy("Same");
+
+    float dxy_rho_distribution_mean = dxy_distribution_gaussian_fit.GetParameter(1);
+    float dxy_rho_distribution_std_deviation = dxy_distribution_gaussian_fit.GetParameter(2);
+
+    TLine dxy_distribution_line_1 = TLine(dxy_rho_distribution_mean, 0, dxy_rho_distribution_mean, 1.05*dxy_maximum_rho_distribution->GetMaximum());
+    dxy_distribution_line_1.DrawClone();
+
+    TLine dxy_distribution_line_2 = TLine(dxy_rho_distribution_mean+dxy_rho_distribution_std_deviation, 0, dxy_rho_distribution_mean+dxy_rho_distribution_std_deviation, 1.05*dxy_maximum_rho_distribution->GetMaximum());
+    dxy_distribution_line_2.DrawClone();
+
+    TLine dxy_distribution_line_3 = TLine(dxy_rho_distribution_mean-dxy_rho_distribution_std_deviation, 0, dxy_rho_distribution_mean-dxy_rho_distribution_std_deviation, 1.05*dxy_maximum_rho_distribution->GetMaximum());
+    dxy_distribution_line_3.DrawClone();
+
+    allowed_greatest_dxy = dxy_rho_distribution_mean + dxy_rho_distribution_std_deviation;
+
+
+    auto dz_maximum_distribution = new TCanvas("dz_maximum_distribution_canvas","dz_maximum_distribution_canvas");
+    dz_maximum_rho_distribution->Draw();
+
+    TF1 dz_distribution_Landau_fit("dz_distribution_Landau_fit", "[0]*TMath::Landau(x,[1],[2])", 0.2, 2);
+    dz_distribution_Landau_fit.SetParameters(1200, 1, 0.1);
+    dz_maximum_rho_distribution->Fit(&dz_distribution_Landau_fit, "","",0.2, 2);
+    dz_distribution_Landau_fit.DrawCopy("Same");
+
+    float dz_rho_distribution_location = dz_distribution_Landau_fit.GetParameter(1);
+    float dz_rho_distribution_scale = dz_distribution_Landau_fit.GetParameter(2);
+
+    TLine dz_distribution_line_1 = TLine(dz_rho_distribution_location, 0, dz_rho_distribution_location, 1.05*dz_maximum_rho_distribution->GetMaximum());
+    dz_distribution_line_1.DrawClone();
+
+    TLine dz_distribution_line_2 = TLine(dz_rho_distribution_location+dz_rho_distribution_scale, 0, dz_rho_distribution_location+dz_rho_distribution_scale, 1.05*dz_maximum_rho_distribution->GetMaximum());
+    dz_distribution_line_2.DrawClone();
+
+    TLine dz_distribution_line_3 = TLine(dz_rho_distribution_location-dz_rho_distribution_scale, 0, dz_rho_distribution_location-dz_rho_distribution_scale, 1.05*dz_maximum_rho_distribution->GetMaximum());
+    dz_distribution_line_3.DrawClone();
+
+    allowed_greatest_dz = dz_rho_distribution_location + dz_rho_distribution_scale;
+
+/*
+    TString dz_distribution_LanGauss_fit_string = "[0]*TMath::Gaus(x,[1],[2])+"+to_string(dz_distribution_Landau_fit.GetParameter(0))+"*TMath::Landau(x,"+to_string(dz_distribution_Landau_fit.GetParameter(1))+","+to_string(dz_distribution_Landau_fit.GetParameter(2))+")";
+    TF1 dz_distribution_LanGauss_fit("dz_distribution_LanGauss_fit", dz_distribution_LanGauss_fit_string, 0.2, 2);
+    dz_distribution_LanGauss_fit.SetParameters(100, 0.4, 10);
+    dz_maximum_rho_distribution->Fit(&dz_distribution_LanGauss_fit, "","",0.2, 2);
+    dz_distribution_LanGauss_fit.SetLineColor(5);
+    dz_distribution_LanGauss_fit.DrawCopy("Same");
+
+    TString dz_distribution_LanGauss_truefit_string = "[0]*TMath::Gaus(x,[1],[2])+[3]*TMath::Landau(x,[4],[5])";
+    TF1 dz_distribution_LanGauss_truefit("dz_distribution_LanGauss_truefit", dz_distribution_LanGauss_truefit_string, 0.2, 2);
+    dz_distribution_LanGauss_truefit.SetParameters(dz_distribution_LanGauss_fit.GetParameter(0), dz_distribution_LanGauss_fit.GetParameter(1), dz_distribution_LanGauss_fit.GetParameter(2), dz_distribution_Landau_fit.GetParameter(0), dz_distribution_Landau_fit.GetParameter(1), dz_distribution_Landau_fit.GetParameter(2));
+    dz_maximum_rho_distribution->Fit(&dz_distribution_LanGauss_truefit, "","",0.2, 2);
+    dz_distribution_LanGauss_truefit.SetLineColor(4);
+    dz_distribution_LanGauss_truefit.DrawCopy("Same");
+
+    //TF1 dz_distribution_LanGauss_fit("dz_distribution_LanBreWig_fit", "[0]*TMath::BreitWigner(x,[1],[2]) + [6] + [3]*TMath::Landau(x,[4],[5])", 200, 1400);
+
+    TF1 dz_distribution_gaussian_fit("dz_distribution_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", 0.2, 2);
+    dz_distribution_gaussian_fit.SetParameters(dz_distribution_LanGauss_truefit.GetParameter(0), dz_distribution_LanGauss_truefit.GetParameter(1), dz_distribution_LanGauss_truefit.GetParameter(2));
+    dz_maximum_rho_distribution->Fit(&dz_distribution_gaussian_fit, "","",0.2, 2);
+    secondary_gaussian_fit.DrawCopy("Same");
+
+
+    float dz_distribution_peak = 0.4;
+    float dz_distribution_fit_range = 0.15;
+    TF1 dz_distribution_gaussian_fit("dz_distribution_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dz_distribution_peak-dz_distribution_fit_range, dz_distribution_peak+dz_distribution_fit_range);
+    dz_distribution_gaussian_fit.SetParameters(1600, dz_distribution_peak, 1);
+    dz_maximum_rho_distribution->Fit(&dz_distribution_gaussian_fit, "","",dz_distribution_peak-dz_distribution_fit_range, dz_distribution_peak+0.04);
+    secondary_gaussian_fit.DrawCopy("Same");
+*/
     
+
 
     auto raw_projections = new TCanvas("Canvas3","Canvas3");
     raw_projection = rho_masses_raw->ProjectionX("X_projection_raw");
     raw_projection->Draw();
-
-    float peak_values[4];
-    float peak_errors[4];
-
-    float std_dev_values[4];
-    float std_dev_errors[4];
 
     Double_t amin,edm,errdef;
     Int_t nvpar,nparx,icstat;
@@ -758,6 +851,9 @@ void BreitWigner_analysis() {
     static Double_t vstart[7];
     static Double_t step[7];
 
+///////////////////////////////////
+//          RAW GAUSS FIT
+//////////////////////////////////
 
     float difference = 1.;
     int i = 0;
@@ -799,11 +895,7 @@ void BreitWigner_analysis() {
         //Double_t val1,err1,val2,err2,val3,err3,val4,err4;
         gMinuit0->GetParameter(0, val1, err1);
         gMinuit0->GetParameter(1, val2, err2);
-        peak_values[0] = val2;
-        peak_errors[0] = err2;
         gMinuit0->GetParameter(2, val3, err3);
-        std_dev_values[0] = val3;
-        std_dev_errors[0] = err3;
 
         difference = abs(dynamic_rho_mass - val2);
 
@@ -846,9 +938,9 @@ void BreitWigner_analysis() {
         }
     }
 
-    TF1 raw_gaussia_fit("raw_gaussia_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - 60, dynamic_rho_mass + 60);
-    raw_gaussia_fit.SetParameters(val1, val2, val3);
-    raw_gaussia_fit.DrawCopy("Same");
+    TF1 raw_gaussian_fit("raw_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - 60, dynamic_rho_mass + 60);
+    raw_gaussian_fit.SetParameters(val1, val2, val3);
+    raw_gaussian_fit.DrawCopy("Same");
 
 /*
     TF1 BreitWigner_fit_raw("BreitWigner_fit_raw", "[0]*TMath::BreitWigner(x,[1],[2])", raw_fcn_BreitWigner_min, raw_fcn_BreitWigner_max);
@@ -862,6 +954,9 @@ void BreitWigner_analysis() {
     BreitWigner_fit_raw_dots.DrawCopy("Same");
 */
 
+///////////////////////////////////
+//          RAW LANDAU FIT
+//////////////////////////////////
 
     fcn_Landau_K_gap_min = static_K_mass-raw_K_radius;
     fcn_Landau_K_gap_max = static_K_mass+raw_K_radius;
@@ -921,6 +1016,10 @@ void BreitWigner_analysis() {
     //cn_LanBreWig_min = 200;
     //fcn_LanBreWig_max = 1400;
 
+///////////////////////////////////
+//          RAW LANDAU + BREIT WIGNER FIT
+//////////////////////////////////
+
     TMinuit *gMinuit03 = new TMinuit(3);
     gMinuit03->SetFCN(raw_fcn_LanBreWig);
 
@@ -961,6 +1060,9 @@ void BreitWigner_analysis() {
     raw_LanBreWig_fit.SetLineColor(2);
     raw_LanBreWig_fit.DrawCopy("Same");
 
+///////////////////////////////////
+//          RAW LANDAU + BREIT WIGNER FULLFIT
+//////////////////////////////////
 
     TMinuit *gMinuit04 = new TMinuit(7);
     gMinuit04->SetFCN(raw_fcn_LanBreWig_fullfit);
@@ -1047,8 +1149,10 @@ void BreitWigner_analysis() {
 
     auto projections = new TCanvas("Canvas5","Canvas5");
     
-    float peak;
-    float peak_bin;
+
+///////////////////////////////////
+//          GAUSS FIT
+//////////////////////////////////
 
     dynamic_rho_mass = static_rho_mass;
     difference = 1.;
@@ -1135,11 +1239,7 @@ void BreitWigner_analysis() {
             dynamic_rho_mass -= difference*(1+0.2*log(i+1))/3;
         }
 
-        peak_values[1] = val2;
-        peak_errors[1] = err2;
         gMinuit1->GetParameter(2, val3, err3);
-        std_dev_values[1] = val3;
-        std_dev_errors[1] = err3;
 
         ++i;
         if (i > 1000) {
@@ -1147,30 +1247,10 @@ void BreitWigner_analysis() {
         }
     }
 
-    TF1 gaussia_fit("gaussia_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - 60, dynamic_rho_mass + 60);
-    gaussia_fit.SetParameters(val1, val2, val3);
-    gaussia_fit.DrawCopy("Same");
+    TF1 gaussian_fit("gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - 60, dynamic_rho_mass + 60);
+    gaussian_fit.SetParameters(val1, val2, val3);
+    gaussian_fit.DrawCopy("Same");
 
-    //TF1 gaussia_fit("gaussia_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass-80, dynamic_rho_mass+80);
-    //gaussia_fit.SetParameters(val1, val2, val3);
-    //gaussia_fit.DrawCopy("Same");
-
-    //TF1 old_BreitWigner_fit("BreitWigner_fit", "[0]*TMath::BreitWigner(x,[1],[2])", fcn_BreitWigner_min, fcn_BreitWigner_max);
-    //old_BreitWigner_fit.SetParameters(val1, val2, val3);
-    //old_BreitWigner_fit.SetLineColor(3);
-    //old_BreitWigner_fit.DrawCopy("Same");
-
-    //TF1 BreitWigner_fit_dots_1("BreitWigner_fit_dots_1", "[0]*TMath::BreitWigner(x,[1],[2])", 200, fcn_BreitWigner_max);
-    //BreitWigner_fit_dots_1.SetParameters(val1, val2, val3);
-    //BreitWigner_fit_dots_1.SetLineColor(3);
-    //BreitWigner_fit_dots_1.SetLineStyle(2);
-    //BreitWigner_fit_dots_1.DrawCopy("Same");
-
-    //TF1 BreitWigner_fit_dots_2("BreitWigner_fit_dots_2", "[0]*TMath::BreitWigner(x,[1],[2])", fcn_BreitWigner_min, 1400);
-    //BreitWigner_fit_dots_2.SetParameters(val1, val2, val3);
-    //BreitWigner_fit_dots_2.SetLineColor(3);
-    //BreitWigner_fit_dots_2.SetLineStyle(2);
-    //BreitWigner_fit_dots_2.DrawCopy("Same");
 
 //////////////////////
 //          LANDAU
@@ -1211,12 +1291,8 @@ void BreitWigner_analysis() {
 
     gMinuit3 ->GetParameter(0, val1, err1);
     gMinuit3 ->GetParameter(1, val2, err2);
-    peak_values[3] = val2;
-    peak_errors[3] = err2;
     gMinuit3 ->GetParameter(2, val3, err3);
     gMinuit3 ->GetParameter(3, val4, err4);
-    std_dev_values[3] = val3;
-    std_dev_errors[3] = err3;
 
     Double_t landau_fit_parameters[4] = {val1, val2, val3, val4};
 
@@ -1342,116 +1418,11 @@ void BreitWigner_analysis() {
 
 
 
-////////////////////////////////////////////
-////////////////////////////////////////////
-
-/*
-
-    fcn_BreitWigner_min = dynamic_rho_mass - 100;
-    fcn_BreitWigner_max = dynamic_rho_mass + 100;
-    
-    TMinuit *gMinuit2 = new TMinuit(3);
-    gMinuit2->SetFCN(fcn_BreitWigner);
-
-    Double_t arglist[10];
-
-    arglist[0] = 1;
-
-    gMinuit2 ->mnexcm("SET ERR", arglist ,1,ierflg);
-
-    static Double_t vstart2[4] = {3.26161e+05, dynamic_rho_mass, 3.42154e+02};
-    static Double_t step2[4] = {1, 1, 1};
-    gMinuit2 ->mnparm(0, "a1", vstart2[0], step2[0], 0,0,ierflg);
-    gMinuit2 ->mnparm(1, "a2", vstart2[1], step2[1], 0,0,ierflg);
-    gMinuit2 ->mnparm(2, "a3", vstart2[2], step2[2], 0,0,ierflg);
-
-    arglist[0] = 500;
-    arglist[1] = 1.;
-    gMinuit2 ->mnexcm("MIGRAD", arglist ,2,ierflg);
-
-    //Double_t amin,edm,errdef;
-    //Int_t nvpar,nparx,icstat;
-    gMinuit2 ->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
-
-    //Double_t val1,err1,val2,err2,val3,err3;
-    gMinuit2 ->GetParameter(0, val1, err1);
-    gMinuit2 ->GetParameter(1, val2, err2);
-    peak_values[2] = val2;
-    peak_errors[2] = err2;
-    gMinuit2 ->GetParameter(2, val3, err3);
-    std_dev_values[2] = val3;
-    std_dev_errors[2] = err3;
-
-    TF1 BreitWigner_fit("BreitWigner_fit", "[0]*TMath::BreitWigner(x,[1],[2])", fcn_BreitWigner_min, fcn_BreitWigner_max);
-    BreitWigner_fit.SetParameters(val1, val2, val3);
-    BreitWigner_fit.SetLineColor(3);
-    BreitWigner_fit.DrawCopy("Same");
-
-    TF1 BreitWigner_fit_dots_1("BreitWigner_fit_dots_1", "[0]*TMath::BreitWigner(x,[1],[2])", 200, fcn_BreitWigner_max);
-    BreitWigner_fit_dots_1.SetParameters(val1, val2, val3);
-    BreitWigner_fit_dots_1.SetLineColor(3);
-    BreitWigner_fit_dots_1.SetLineStyle(2);
-    BreitWigner_fit_dots_1.DrawCopy("Same");
-
-    TF1 BreitWigner_fit_dots_2("BreitWigner_fit_dots_2", "[0]*TMath::BreitWigner(x,[1],[2])", fcn_BreitWigner_min, 1400);
-    BreitWigner_fit_dots_2.SetParameters(val1, val2, val3);
-    BreitWigner_fit_dots_2.SetLineColor(3);
-    BreitWigner_fit_dots_2.SetLineStyle(2);
-    BreitWigner_fit_dots_2.DrawCopy("Same");
-
-
-
-////////////////////////////////////////////
-
-    fcn_Landau_min = peak - 100;
-    fcn_Landau_max = peak + 300;
-
-    TMinuit *gMinuit3 = new TMinuit(4);
-    gMinuit3->SetFCN(fcn_Landau);
-
-
-    arglist[0] = 1;
-
-    gMinuit3 ->mnexcm("SET ERR", arglist ,1,ierflg);
-
-    static Double_t vstart3[4] = {3.28034e+03, 7.12024e+02, 7.82408e+01, 0};
-    static Double_t step3[4] = {1, 0.1, 1, 1};
-    gMinuit3 ->mnparm(0, "a1", vstart3[0], step3[0], 0,0,ierflg);
-    gMinuit3 ->mnparm(1, "a2", vstart3[1], step3[1], 0,0,ierflg);
-    gMinuit3 ->mnparm(2, "a3", vstart3[2], step3[2], 0,0,ierflg);
-    gMinuit3 ->mnparm(3, "a4", vstart3[3], step3[3], 0,0,ierflg);
-
-    arglist[0] = 500;
-    arglist[1] = 1.;
-    gMinuit3 ->mnexcm("MIGRAD", arglist ,2,ierflg);
-
-    //Double_t amin,edm,errdef;
-    //Int_t nvpar,nparx,icstat;
-    gMinuit3 ->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
-
-    gMinuit3 ->GetParameter(0, val1, err1);
-    gMinuit3 ->GetParameter(1, val2, err2);
-    peak_values[3] = val2;
-    peak_errors[3] = err2;
-    gMinuit3 ->GetParameter(2, val3, err3);
-    gMinuit3 ->GetParameter(3, val4, err4);
-    std_dev_values[3] = val3;
-    std_dev_errors[3] = err3;
-
-    TF1 Landau_fit("Landau_fit", "[3] + [0]*TMath::Landau(x,[1],[2])", 200, 1400);
-    Landau_fit.SetParameters(val1, val2, val3, val4);
-    Landau_fit.SetLineColor(4);
-    Landau_fit.DrawCopy("Same");
-
-*/
-////////////////////////
-////////////////////////
-
 
     auto proper_rho_fit_canvas = new TCanvas("proper_rho_fit_canvas","proper_rho_fit_canvas");
     
 
-    float raw_scale = 0.275;
+    float raw_scale = 0.33;
 
     auto raw_projection_scaled=new TH1D(*raw_projection);
     raw_projection_scaled->Scale(raw_scale);
@@ -1530,16 +1501,12 @@ void BreitWigner_analysis() {
     leg.SetFillColor(0);
     leg.SetTextSize(0.025);
     leg.AddEntry(raw_projection_scaled,"raw data");
-    //TString entry_string = "#splitline{BreitWigner fit}{#splitline{peak at "+rounded(peak_values[0], 0)+"#pm"+rounded(peak_errors[0], 0)+"}{std. dev. "+rounded(std_dev_values[0], -1)+"#pm"+rounded(std_dev_errors[0], -1)+"}}";
-    //leg.AddEntry(&BreitWigner_fit_raw_scaled, entry_string);
     leg.AddEntry(&raw_LanBreWig_truefit_scaled_3, "#splitline{BreitWigner fit with}{#splitline{Landau background}{on raw data}}");
     leg.AddEntry(&BreitWigner_fit_raw_scaled, "#splitline{BreitWigner fit}{on raw data}");
     leg.AddEntry(&raw_K_fit_scaled, "#splitline{Gaussian fit for}{K^{0}_{s} peak on raw data}");
 
     leg.AddEntry(projection,"#splitline{data with}{selection criteria}", "LE");
     leg.AddEntry(&LanBreWig_truefit_3,"#splitline{BreitWigner fit with}{Landau background}");
-    //entry_string = "#splitline{BreitWigner fit}{#splitline{peak at "+rounded(peak_values[1], -1)+"#pm"+rounded(peak_errors[1], -1)+"}{std. dev. "+rounded(std_dev_values[1], -1)+"#pm"+rounded(std_dev_errors[1], -1)+"}}";
-    //leg.AddEntry(&BreitWigner_fit,entry_string);
 
     leg.AddEntry(&BreitWigner_fit, "BreitWigner fit");
     leg.DrawClone("Same");
@@ -1611,24 +1578,7 @@ void BreitWigner_analysis() {
     line22.SetLineColor(2);
     line22.DrawClone();
 
-    auto dxy_maximum_distribution = new TCanvas("dxy_maximum_distribution_canvas","dxy_maximum_distribution_canvas");
-    dxy_maximum_rho_distribution->Draw();
 
-    auto dz_maximum_distribution = new TCanvas("dz_maximum_distribution_canvas","dz_maximum_distribution_canvas");
-    dz_maximum_rho_distribution->Draw();
-
-    
-
-
-    cout << "RESULTS: " << endl;
-    cout << to_string(peak_values[0]) + " ± " + to_string(peak_errors[0]) << endl;
-    cout << to_string(peak_values[1]) + " ± " + to_string(peak_errors[1]) << endl;
-    //cout << to_string(peak_values[2]) + " ± " + to_string(peak_errors[2]) << endl;
-    cout << endl << endl;
-    cout << to_string(std_dev_values[0]) + " ± " + to_string(std_dev_errors[0]) << endl;
-    cout << to_string(std_dev_values[1]) + " ± " + to_string(std_dev_errors[1]) << endl;
-    //cout << to_string(std_dev_values[2]) + " ± " + to_string(std_dev_errors[2]) << endl;
-    //cout << to_string(peak_values[3]) + " ± " + to_string(peak_errors[3]) << endl;
 
 
     Reader.Restart();
@@ -1769,6 +1719,9 @@ void BreitWigner_analysis() {
     auto raw_origin_mass_canvas = new TCanvas("Canvas10","Canvas10");
     raw_origin_mass->Draw("Colz");
 
+    float peak;
+    float peak_bin;
+
     peak_bin = raw_origin_mass->GetMaximumBin();
     peak = raw_origin_mass->GetBinCenter(peak_bin);
     TF1 raw_origin_mass_fit("raw_origin_mass_fit", "[0]*TMath::Gaus(x,[1],[2])", 500, 3000);
@@ -1806,6 +1759,15 @@ void BreitWigner_analysis() {
     
     auto origin_projection_supercut = origin_m_vs_rho1_m_supercut->ProjectionX("origin_m_vs_rho1_m_projection_supercut", (dynamic_rho_mass-allowed_rho_mass_difference_supercut-200)/6, (dynamic_rho_mass+allowed_rho_mass_difference_supercut-200)/6);
     origin_projection_supercut->Draw();
+
+
+    cout << "---RESULTS---" << endl << endl;
+
+
+
+    cout << "second particle gaussian fit peak = "+to_string(results["secondary_rho_gaussian_fit_peak"]) << endl;
+    cout << "second particle gaussian standard deviation = "+to_string(results["secondary_rho_gaussian_fit_std_dev"]) << endl;
+    cout << "allowed rho mass deviation = "+to_string(3*results["secondary_rho_gaussian_fit_std_dev"]) << endl;
 
 
     /*
@@ -1847,10 +1809,10 @@ void BreitWigner_analysis() {
     cout << "parameter 2 val/err: " << val2 << " / " << err2 << endl;
     cout << "parameter 3 val/err: " << val3 << " / " << err3 << endl;
 
-    TF1 gaussia_fit("gaussia_fit", "[0]*TMath::Gaus(x,[1],[2])", 200, 1400);
-    gaussia_fit.SetParameters(val1, val2, val3);
+    TF1 gaussian_fit("gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", 200, 1400);
+    gaussian_fit.SetParameters(val1, val2, val3);
 
-    gaussia_fit.DrawCopy("Same");
+    gaussian_fit.DrawCopy("Same");
     */   
 }
 
