@@ -504,7 +504,8 @@ void BreitWigner_analysis() {
     const float pion_mass = 139.57021;//139.57039
     const float static_rho_mass = 729; //720, 770, 743, 775.02
     float dynamic_rho_mass = static_rho_mass;
-    const float static_K_mass = 4.98244e+02;
+    const float static_K_mass = 498.170974;
+    float dynamic_K_mass = static_K_mass;
 
     const float allowed_px_difference = 200;
     const float allowed_py_difference = 200;
@@ -512,9 +513,9 @@ void BreitWigner_analysis() {
     const float allowed_dz_variance = 0.2;
     float allowed_rho_mass_difference = 212.210888;
     const float allowed_rho_mass_difference_supercut = 50;
-    const float K_radius = 25;
-    const float raw_K_radius = 35;
-
+    
+    float raw_K_radius = 37.935224;
+    float K_radius = 0.65*raw_K_radius;
     float allowed_greatest_dxy = 0.2; //0.2
     float allowed_greatest_dz = 0.5; //0.6
 
@@ -753,10 +754,21 @@ void BreitWigner_analysis() {
     raw_secondary_projection->Fit(&secondary_gaussian_fit, "","",secondary_rho_min, secondary_rho_max);
     secondary_gaussian_fit.DrawCopy("Same");
 
-    allowed_rho_mass_difference = 3*secondary_gaussian_fit.GetParameter(2);
+    float secondary_gaussian_fit_mean = secondary_gaussian_fit.GetParameter(1);
+    float secondary_gaussian_fit_std_deviation = secondary_gaussian_fit.GetParameter(2);
 
-    results["secondary_rho_gaussian_fit_peak"] = secondary_gaussian_fit.GetParameter(1);
-    results["secondary_rho_gaussian_fit_std_dev"] = secondary_gaussian_fit.GetParameter(2);
+    allowed_rho_mass_difference = 3*secondary_gaussian_fit_std_deviation;
+
+
+    results["secondary_rho_gaussian_fit_peak"] = secondary_gaussian_fit_mean;
+    results["secondary_rho_gaussian_fit_std_dev"] = secondary_gaussian_fit_std_deviation;
+
+
+    TLine secondary_gaussian_line_1 = TLine(secondary_gaussian_fit_mean-3*secondary_gaussian_fit_std_deviation, 0, secondary_gaussian_fit_mean-3*secondary_gaussian_fit_std_deviation, 1.05*raw_secondary_projection->GetMaximum());
+    secondary_gaussian_line_1.DrawClone();
+
+    TLine secondary_gaussian_line_2 = TLine(secondary_gaussian_fit_mean+3*secondary_gaussian_fit_std_deviation, 0, secondary_gaussian_fit_mean+3*secondary_gaussian_fit_std_deviation, 1.05*raw_secondary_projection->GetMaximum());
+    secondary_gaussian_line_2.DrawClone();
 
 
     auto dxy_maximum_distribution = new TCanvas("dxy_maximum_distribution_canvas","dxy_maximum_distribution_canvas");
@@ -771,6 +783,9 @@ void BreitWigner_analysis() {
 
     float dxy_rho_distribution_mean = dxy_distribution_gaussian_fit.GetParameter(1);
     float dxy_rho_distribution_std_deviation = dxy_distribution_gaussian_fit.GetParameter(2);
+
+    results["dxy_rho_distribution_mean"] = dxy_rho_distribution_mean;
+    results["dxy_rho_distribution_std_deviation"] = dxy_rho_distribution_std_deviation;
 
     TLine dxy_distribution_line_1 = TLine(dxy_rho_distribution_mean, 0, dxy_rho_distribution_mean, 1.05*dxy_maximum_rho_distribution->GetMaximum());
     dxy_distribution_line_1.DrawClone();
@@ -794,6 +809,9 @@ void BreitWigner_analysis() {
 
     float dz_rho_distribution_location = dz_distribution_Landau_fit.GetParameter(1);
     float dz_rho_distribution_scale = dz_distribution_Landau_fit.GetParameter(2);
+
+    results["dz_rho_distribution_location"] = dz_rho_distribution_location;
+    results["dz_rho_distribution_scale"] = dz_rho_distribution_scale;
 
     TLine dz_distribution_line_1 = TLine(dz_rho_distribution_location, 0, dz_rho_distribution_location, 1.05*dz_maximum_rho_distribution->GetMaximum());
     dz_distribution_line_1.DrawClone();
@@ -851,6 +869,20 @@ void BreitWigner_analysis() {
     static Double_t vstart[7];
     static Double_t step[7];
 
+    TF1 raw_K_fit("raw_K_fit", "[0]*TMath::Gaus(x,[1],[2])", 200, 1400);
+    raw_K_fit.SetParameters(1000, static_K_mass, 100);
+    auto fit_results = raw_projection->Fit(&raw_K_fit, "S","",static_K_mass-raw_K_radius,static_K_mass+raw_K_radius);
+
+    Double_t raw_K_fit_values[3] = {raw_K_fit.GetParameter(0), raw_K_fit.GetParameter(1), raw_K_fit.GetParameter(2)};
+    results["raw_K_fit_peak"] = raw_K_fit_values[1];
+    results["raw_K_fit_peak_err"] = fit_results->ParError(1);
+    results["raw_K_fit_std_deviation"] = raw_K_fit_values[2];
+    results["raw_K_fit_std_deviation_err"] = fit_results->ParError(2);
+
+    dynamic_K_mass = raw_K_fit_values[1];
+    K_radius = 0.65*raw_K_fit_values[2];
+    raw_K_radius = raw_K_fit_values[2];
+
 ///////////////////////////////////
 //          RAW GAUSS FIT
 //////////////////////////////////
@@ -862,8 +894,8 @@ void BreitWigner_analysis() {
     float peak2 = -1;
     while (difference > i*0.0005) {
 
-        raw_fcn_gaussian_min = dynamic_rho_mass - 60;
-        raw_fcn_gaussian_max = dynamic_rho_mass + 60;
+        raw_fcn_gaussian_min = dynamic_rho_mass - results["secondary_rho_gaussian_fit_std_dev"];
+        raw_fcn_gaussian_max = dynamic_rho_mass + results["secondary_rho_gaussian_fit_std_dev"];
 
         TMinuit *gMinuit0 = new TMinuit(3);
         gMinuit0->Command("SET PRINT -1");
@@ -938,7 +970,9 @@ void BreitWigner_analysis() {
         }
     }
 
-    TF1 raw_gaussian_fit("raw_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - 60, dynamic_rho_mass + 60);
+    results["raw_rho_Gauss_peak"] = val2;
+
+    TF1 raw_gaussian_fit("raw_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - results["secondary_rho_gaussian_fit_std_dev"], dynamic_rho_mass + results["secondary_rho_gaussian_fit_std_dev"]);
     raw_gaussian_fit.SetParameters(val1, val2, val3);
     raw_gaussian_fit.DrawCopy("Same");
 
@@ -958,10 +992,14 @@ void BreitWigner_analysis() {
 //          RAW LANDAU FIT
 //////////////////////////////////
 
-    fcn_Landau_K_gap_min = static_K_mass-raw_K_radius;
-    fcn_Landau_K_gap_max = static_K_mass+raw_K_radius;
-    fcn_Landau_rho_gap_min = dynamic_rho_mass-150;
-    fcn_Landau_rho_gap_max = dynamic_rho_mass+150;
+    fcn_Landau_K_gap_min = dynamic_K_mass-raw_K_radius;
+    fcn_Landau_K_gap_max = dynamic_K_mass+raw_K_radius;
+
+    float rho_gap_width = 2*secondary_gaussian_fit_std_deviation;
+    //float rho_gap_width = 150;
+
+    fcn_Landau_rho_gap_min = dynamic_rho_mass-rho_gap_width;
+    fcn_Landau_rho_gap_max = dynamic_rho_mass+rho_gap_width;
 
     TMinuit *gMinuit02 = new TMinuit(4);
     gMinuit02->SetFCN(raw_fcn_Landau);
@@ -1010,8 +1048,8 @@ void BreitWigner_analysis() {
 
     cout << "MASS" << endl;
     cout << dynamic_rho_mass << endl;
-    fcn_LanBreWig_min = dynamic_rho_mass-150;
-    fcn_LanBreWig_max = dynamic_rho_mass+150;
+    fcn_LanBreWig_min = dynamic_rho_mass-rho_gap_width;
+    fcn_LanBreWig_max = dynamic_rho_mass+rho_gap_width;
 
     //cn_LanBreWig_min = 200;
     //fcn_LanBreWig_max = 1400;
@@ -1109,6 +1147,24 @@ void BreitWigner_analysis() {
     gMinuit04 ->GetParameter(5, val6, err6);
     gMinuit04 ->GetParameter(6, val7, err7);
 
+
+    results["raw_BreitWigner_coef"] = val1;
+    results["raw_BreitWigner_location"] = val2;
+    results["raw_BreitWigner_scale"] = val3;
+    results["raw_Landau_coef"] = val4;
+    results["raw_Landau_location"] = val5;
+    results["raw_Landau_scale"] = val6;
+    results["raw_constant_background"] = val7;
+
+    results["raw_BreitWigner_coef_err"] = err1;
+    results["raw_BreitWigner_location_err"] = err2;
+    results["raw_BreitWigner_scale_err"] = err3;
+    results["raw_Landau_coef_err"] = err4;
+    results["raw_Landau_location_err"] = err5;
+    results["raw_Landau_scale_err"] = err6;
+    results["raw_constant_background_err"] = err7;
+
+
     TF1 raw_LanBreWig_truefit("raw_LanBreWig_truefit", "[0]*TMath::BreitWigner(x,[1],[2]) + [6] + [3]*TMath::Landau(x,[4],[5])", 200, 1400);
     raw_LanBreWig_truefit.SetParameters(val1, val2, val3, val4, val5, val6, val7);
     raw_LanBreWig_truefit.SetLineColor(3);
@@ -1126,21 +1182,13 @@ void BreitWigner_analysis() {
 
     Double_t raw_fit_params[7] = {val1, val2, val3, val4, val5, val6, val7};
 
-    TLine K_gap_line_1 = TLine(static_K_mass-raw_K_radius, 0, static_K_mass-raw_K_radius, 1.1*raw_projection->GetMaximum());
+    TLine K_gap_line_1 = TLine(dynamic_K_mass-raw_K_radius, 0, dynamic_K_mass-raw_K_radius, 1.1*raw_projection->GetMaximum());
     K_gap_line_1.SetLineColor(2);
     K_gap_line_1.DrawClone();
 
-    TLine K_gap_line_2 = TLine(static_K_mass+raw_K_radius, 0, static_K_mass+raw_K_radius, 1.1*raw_projection->GetMaximum());
+    TLine K_gap_line_2 = TLine(dynamic_K_mass+raw_K_radius, 0, dynamic_K_mass+raw_K_radius, 1.1*raw_projection->GetMaximum());
     K_gap_line_2.SetLineColor(2);
     K_gap_line_2.DrawClone();
-
-
-
-    TF1 raw_K_fit("raw_K_fit", "[0]*TMath::Gaus(x,[1],[2])", 200, 1400);
-    raw_K_fit.SetParameters(1000, static_K_mass, 100);
-    raw_projection->Fit(&raw_K_fit, "","",static_K_mass-raw_K_radius,static_K_mass+raw_K_radius);
-
-    Double_t raw_K_fit_values[3] = {raw_K_fit.GetParameter(0), raw_K_fit.GetParameter(1), raw_K_fit.GetParameter(2)};
 
 
     auto main = new TCanvas("Canvas4","Canvas4");
@@ -1175,8 +1223,8 @@ void BreitWigner_analysis() {
         //fcn_BreitWigner_min = dynamic_rho_mass - 80;
         //fcn_BreitWigner_max = dynamic_rho_mass + 80;
 
-        fcn_gaussian_min = dynamic_rho_mass - 80;
-        fcn_gaussian_max = dynamic_rho_mass + 80;
+        fcn_gaussian_min = dynamic_rho_mass - results["secondary_rho_gaussian_fit_std_dev"];
+        fcn_gaussian_max = dynamic_rho_mass + results["secondary_rho_gaussian_fit_std_dev"];
 
         TMinuit *gMinuit1 = new TMinuit(3);
         gMinuit1->Command("SET PRINT -1");
@@ -1247,6 +1295,8 @@ void BreitWigner_analysis() {
         }
     }
 
+    results["rho_Gauss_peak"] = val2;
+
     TF1 gaussian_fit("gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - 60, dynamic_rho_mass + 60);
     gaussian_fit.SetParameters(val1, val2, val3);
     gaussian_fit.DrawCopy("Same");
@@ -1256,10 +1306,10 @@ void BreitWigner_analysis() {
 //          LANDAU
 //////////////////////
     
-    fcn_Landau_K_gap_min = static_K_mass-K_radius;
-    fcn_Landau_K_gap_max = static_K_mass+K_radius;
-    fcn_Landau_rho_gap_min = dynamic_rho_mass-150;
-    fcn_Landau_rho_gap_max = dynamic_rho_mass+150;
+    fcn_Landau_K_gap_min = dynamic_K_mass-K_radius;
+    fcn_Landau_K_gap_max = dynamic_K_mass+K_radius;
+    fcn_Landau_rho_gap_min = dynamic_rho_mass-rho_gap_width;
+    fcn_Landau_rho_gap_max = dynamic_rho_mass+rho_gap_width;
 
     TMinuit *gMinuit3 = new TMinuit(4);
     gMinuit3->SetFCN(fcn_Landau);
@@ -1268,10 +1318,10 @@ void BreitWigner_analysis() {
 
     gMinuit3 ->mnexcm("SET ERR", arglist ,1,ierflg);
 
-    vstart[0] = 3.28034e+03;
+    vstart[0] = 1.71111e+03;
     vstart[1] = dynamic_rho_mass;
-    vstart[2] = 7.82408e+01;
-    vstart[3] = 0;
+    vstart[2] = 1.93851e+02;
+    vstart[3] = -6.21935e+01;
     step[0] = 1;
     step[1] = 0.1;
     step[2] = 1;
@@ -1310,8 +1360,8 @@ void BreitWigner_analysis() {
 //          LANDAU + BreitWigner
 //////////////////////
 
-    fcn_LanBreWig_min = dynamic_rho_mass-150;
-    fcn_LanBreWig_max = dynamic_rho_mass+150;
+    fcn_LanBreWig_min = dynamic_rho_mass-rho_gap_width;
+    fcn_LanBreWig_max = dynamic_rho_mass+rho_gap_width;
 
     TMinuit *gMinuit4 = new TMinuit(3);
     gMinuit4->SetFCN(fcn_LanBreWig);
@@ -1320,9 +1370,9 @@ void BreitWigner_analysis() {
 
     gMinuit4 ->mnexcm("SET ERR", arglist ,1,ierflg);
 
-    vstart[0] = 100;
+    vstart[0] = 4.24303e+04;
     vstart[1] = dynamic_rho_mass;
-    vstart[2] = 300;
+    vstart[2] = 1.36910e+02;
     step[0] = 1;
     step[1] = 0.1;
     step[2] = 1;
@@ -1401,6 +1451,24 @@ void BreitWigner_analysis() {
     gMinuit5 ->GetParameter(4, val5, err5);
     gMinuit5 ->GetParameter(5, val6, err6);
     gMinuit5 ->GetParameter(6, val7, err7);
+
+
+    results["BreitWigner_coef"] = val1;
+    results["BreitWigner_location"] = val2;
+    results["BreitWigner_scale"] = val3;
+    results["Landau_coef"] = val4;
+    results["Landau_location"] = val5;
+    results["Landau_scale"] = val6;
+    results["constant_background"] = val7;
+
+    results["BreitWigner_coef_err"] = err1;
+    results["BreitWigner_location_err"] = err2;
+    results["BreitWigner_scale_err"] = err3;
+    results["Landau_coef_err"] = err4;
+    results["Landau_location_err"] = err5;
+    results["Landau_scale_err"] = err6;
+    results["constant_background_err"] = err7;
+
 
     TF1 LanBreWig_truefit("LanBreWig_fit", "[0]*TMath::BreitWigner(x,[1],[2]) + [6] + [3]*TMath::Landau(x,[4],[5])", 200, 1400);
     LanBreWig_truefit.SetParameters(val1, val2, val3, val4, val5, val6, val7);
@@ -1769,6 +1837,37 @@ void BreitWigner_analysis() {
     cout << "second particle gaussian standard deviation = "+to_string(results["secondary_rho_gaussian_fit_std_dev"]) << endl;
     cout << "allowed rho mass deviation = "+to_string(3*results["secondary_rho_gaussian_fit_std_dev"]) << endl;
 
+    cout << "K gaussian fit peak = "+to_string(results["raw_K_fit_peak"])+"±"+to_string(results["raw_K_fit_peak_err"]) << endl;
+    cout << "K gaussian fit standard deviation = "+to_string(results["raw_K_fit_std_deviation"])+"±"+to_string(results["raw_K_fit_std_deviation_err"]) << endl;
+
+    cout << "raw rho Gauss peak = "+to_string(results["raw_rho_Gauss_peak"]) << endl;
+    cout << "rho Gauss peak = "+to_string(results["rho_Gauss_peak"]) << endl;
+
+    cout << "dxy rho distribution mean = "+to_string(results["dxy_rho_distribution_mean"]) << endl;
+    cout << "dxy rho distribution standard deviation = "+to_string(results["dxy_rho_distribution_std_deviation"]) << endl;
+
+    cout << "dz rho distribution location = "+to_string(results["dz_rho_distribution_location"]) << endl;
+    cout << "dz rho distribution scale = "+to_string(results["dz_rho_distribution_scale"]) << endl;
+
+    cout << endl;
+
+    cout << "raw Breit Wigner coefficient = "+to_string(results["raw_BreitWigner_coef"])+"±"+to_string(results["raw_BreitWigner_coef_err"]) << endl;
+    cout << "raw Breit Wigner location = "+to_string(results["raw_BreitWigner_location"])+"±"+to_string(results["raw_BreitWigner_location_err"]) << endl;
+    cout << "raw Breit Wigner scale = "+to_string(results["raw_BreitWigner_scale"])+"±"+to_string(results["raw_BreitWigner_scale_err"]) << endl;
+    cout << "raw Landau coefficient = "+to_string(results["raw_Landau_coef"])+"±"+to_string(results["raw_Landau_coef_err"]) << endl;
+    cout << "raw Landau location = "+to_string(results["raw_Landau_location"])+"±"+to_string(results["raw_Landau_location_err"]) << endl;
+    cout << "raw Landau scale = "+to_string(results["raw_Landau_scale"])+"±"+to_string(results["raw_Landau_scale_err"]) << endl;
+    cout << "raw constant background = "+to_string(results["raw_constant_background"])+"±"+to_string(results["raw_constant_background_err"]) << endl;
+
+    cout << endl;
+
+    cout << "Breit Wigner coefficient = "+to_string(results["BreitWigner_coef"])+"±"+to_string(results["BreitWigner_coef_err"]) << endl;
+    cout << "Breit Wigner location = "+to_string(results["BreitWigner_location"])+"±"+to_string(results["BreitWigner_location_err"]) << endl;
+    cout << "Breit Wigner scale = "+to_string(results["BreitWigner_scale"])+"±"+to_string(results["BreitWigner_scale_err"]) << endl;
+    cout << "Landau coefficient = "+to_string(results["Landau_coef"])+"±"+to_string(results["Landau_coef_err"]) << endl;
+    cout << "Landau location = "+to_string(results["Landau_location"])+"±"+to_string(results["Landau_location_err"]) << endl;
+    cout << "Landau scale = "+to_string(results["Landau_scale"])+"±"+to_string(results["Landau_scale_err"]) << endl;
+    cout << "constant background = "+to_string(results["constant_background"])+"±"+to_string(results["constant_background_err"]) << endl;
 
     /*
     TMinuit *gMinuit = new TMinuit(3);
