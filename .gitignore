@@ -5,3 +5,5 @@ settings.json
 .vscode/
 *.gif
 *.png
+analysis_oldway.C
+~analysis_oldway.C

@@ -220,6 +220,7 @@ void refractive_momentum_analysis() {
     auto refractive_momentums = new TH2F("refractive_momentums", ";px (MeV);py (MeV)",200,-1400,1400,200,-1400,1400);
 
     gStyle->SetOptStat(0);
+    gStyle->SetPalette(kCividis);
     rho_masses->Sumw2();
 
     for (string filename : filenames) {

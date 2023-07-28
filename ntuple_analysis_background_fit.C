@@ -120,7 +120,7 @@ class Event {
 
 void ntuple_analysis_background_fit() {
 
-    const string filename = "TOTEM43.root"; //"TOTEM43.root", kpkm.roo, 110000.root
+    const string filename = "./ntuples/TOTEM43.root"; //"TOTEM43.root", kpkm.roo, 110000.root
     const float muon_mass = 139.57039;
     const float rho_mass = 730; //770
 
