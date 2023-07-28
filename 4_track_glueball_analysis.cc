@@ -23,6 +23,7 @@
 
 using namespace std;
 
+
 string create_interval(float start, float stop) {
     return "((("+to_string(start)+"<x) ? 1 : 0) - (("+to_string(stop)+"<x) ? 1 : 0))";
 }
@@ -515,6 +516,7 @@ string rounded(float value, int decimals) {
     return output;
 }
 
+<<<<<<< HEAD
 /*
 int main() {
     BreitWigner_analysis();
@@ -524,6 +526,15 @@ int main() {
 int main() {
 
     const string filename = "/eos/cms/store/group/phys_smp/CMS_TOTEM/ntuples/data/TOTEM43.root"; //"TOTEM43.root", kpkm.roo, 110000.root, rho.root, MinBias.root
+=======
+int main() {
+    BreitWigner_analysis();
+}
+
+void BreitWigner_analysis() {
+
+    const string filename = "./ntuples/TOTEM43.root"; //"TOTEM43.root", kpkm.roo, 110000.root, rho.root, MinBias.root
+>>>>>>> a21e4202f183780a327d2472587b3f9828492257
     bool monte_carlo = false;
     if (filename == "rho.root") {
         monte_carlo = true;
@@ -737,7 +748,11 @@ int main() {
 
     auto px_comparison = new TCanvas("Canvas0","Canvas0");
     prot_px_vs_diff_px->Draw("Colz");
+<<<<<<< HEAD
     //CMS_lumi(px_comparison, 17, 33);
+=======
+    CMS_lumi(px_comparison, 17, 33);
+>>>>>>> a21e4202f183780a327d2472587b3f9828492257
 
 /*
     TLine upper_limit_x = TLine(-1500, 1500+allowed_px_difference, 1500, -1500+allowed_px_difference);
@@ -749,7 +764,11 @@ int main() {
 
     auto py_comparison = new TCanvas("Canvas1","Canvas1");
     prot_py_vs_diff_py->Draw("Colz");
+<<<<<<< HEAD
     //CMS_lumi(py_comparison, 17, 33);
+=======
+    CMS_lumi(py_comparison, 17, 33);
+>>>>>>> a21e4202f183780a327d2472587b3f9828492257
 
 /*
     TLine upper_limit_y = TLine(-1500, 1500+allowed_py_difference, 1500, -1500+allowed_py_difference);
@@ -1598,7 +1617,11 @@ int main() {
     leg.DrawClone("Same");
     
 
+<<<<<<< HEAD
     //CMS_lumi(proper_rho_fit_canvas, 17, 11);
+=======
+    CMS_lumi(proper_rho_fit_canvas, 17, 11);
+>>>>>>> a21e4202f183780a327d2472587b3f9828492257
 
 
     auto raw = new TCanvas("Canvas2","Canvas2");
@@ -1632,7 +1655,11 @@ int main() {
     text2.SetTextColor(0);
     text2.DrawClone();
 
+<<<<<<< HEAD
     //CMS_lumi(raw, 17, 33);
+=======
+    CMS_lumi(raw, 17, 33);
+>>>>>>> a21e4202f183780a327d2472587b3f9828492257
 
 
     auto dxy_comparison_1 = new TCanvas("Canvas6","Canvas6");
@@ -1650,7 +1677,11 @@ int main() {
 
     auto dxy_maximum = new TCanvas("dxy_maximum_canvas","dxy_maximum_canvas");
     dxy_maximum_vs_rho_m1->Draw("Colz");
+<<<<<<< HEAD
     //CMS_lumi(dxy_maximum, 17, 33);
+=======
+    CMS_lumi(dxy_maximum, 17, 33);
+>>>>>>> a21e4202f183780a327d2472587b3f9828492257
 
     TLine line21 = TLine(allowed_greatest_dxy, 200, allowed_greatest_dxy, 1400);
     line21.SetLineColor(2);
@@ -1658,7 +1689,11 @@ int main() {
 
     auto dz_maximum = new TCanvas("dz_maximum_canvas","dz_maximum_canvas");
     dz_maximum_vs_rho_m1->Draw("Colz");
+<<<<<<< HEAD
     //CMS_lumi(dz_maximum, 17, 33);
+=======
+    CMS_lumi(dz_maximum, 17, 33);
+>>>>>>> a21e4202f183780a327d2472587b3f9828492257
 
     TLine line22 = TLine(allowed_greatest_dz, 200, allowed_greatest_dz, 1400);
     line22.SetLineColor(2);
@@ -1941,4 +1976,8 @@ variance cuts:
 
 120.558868 ± 13.010889
 118.874001 ± 23.329580
+<<<<<<< HEAD
 */
+=======
+*/
+>>>>>>> a21e4202f183780a327d2472587b3f9828492257
