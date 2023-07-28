@@ -438,7 +438,7 @@ void fcn_LanBreWig_fullfit(Int_t &npar, Double_t *gin, Double_t &f, Double_t *pa
         chisq += delta*delta;
     }
     f = chisq;
-    //cout << "chisq: " << chisq << endl << endl;
+    //cout << "chisq: " << chisq << endl;
 }
 
 void raw_fcn_LanBreWig_fullfit(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
@@ -501,8 +501,8 @@ void BreitWigner_analysis() {
         monte_carlo = true;
     }
 
-    const float pion_mass = 139.57021;//139.57039
-    const float static_rho_mass = 729; //720, 770, 743, 775.02
+    const float pion_mass = 139.57039;//139.57039
+    const float static_rho_mass = 733.725188; //720, 770, 743, 775.02
     float dynamic_rho_mass = static_rho_mass;
     const float static_K_mass = 498.170974;
     float dynamic_K_mass = static_K_mass;
@@ -516,8 +516,8 @@ void BreitWigner_analysis() {
     
     float raw_K_radius = 37.935224;
     float K_radius = 0.65*raw_K_radius;
-    float allowed_greatest_dxy = 0.2; //0.2
-    float allowed_greatest_dz = 0.5; //0.6
+    const float allowed_greatest_dxy = 0.2; //0.2
+    const float allowed_greatest_dz = 0.5; //0.6
 
     map<string, Double_t> results;
 
@@ -690,16 +690,6 @@ void BreitWigner_analysis() {
             continue;
         }
         
-        
-        /*
-        if (current_event.get_dxy_variance()>allowed_dxy_variance) {
-            continue;
-        }
-
-        if (current_event.get_dz_variance()>allowed_dz_variance) {
-            continue;
-        }
-        */
 
         float masses[2];
         for (int i=0; i<2; ++i) {
@@ -796,7 +786,7 @@ void BreitWigner_analysis() {
     TLine dxy_distribution_line_3 = TLine(dxy_rho_distribution_mean-dxy_rho_distribution_std_deviation, 0, dxy_rho_distribution_mean-dxy_rho_distribution_std_deviation, 1.05*dxy_maximum_rho_distribution->GetMaximum());
     dxy_distribution_line_3.DrawClone();
 
-    allowed_greatest_dxy = dxy_rho_distribution_mean + dxy_rho_distribution_std_deviation;
+    //allowed_greatest_dxy = dxy_rho_distribution_mean + dxy_rho_distribution_std_deviation;
 
 
     auto dz_maximum_distribution = new TCanvas("dz_maximum_distribution_canvas","dz_maximum_distribution_canvas");
@@ -822,7 +812,7 @@ void BreitWigner_analysis() {
     TLine dz_distribution_line_3 = TLine(dz_rho_distribution_location-dz_rho_distribution_scale, 0, dz_rho_distribution_location-dz_rho_distribution_scale, 1.05*dz_maximum_rho_distribution->GetMaximum());
     dz_distribution_line_3.DrawClone();
 
-    allowed_greatest_dz = dz_rho_distribution_location + dz_rho_distribution_scale;
+    //allowed_greatest_dz = dz_rho_distribution_location + dz_rho_distribution_scale;
 
 /*
     TString dz_distribution_LanGauss_fit_string = "[0]*TMath::Gaus(x,[1],[2])+"+to_string(dz_distribution_Landau_fit.GetParameter(0))+"*TMath::Landau(x,"+to_string(dz_distribution_Landau_fit.GetParameter(1))+","+to_string(dz_distribution_Landau_fit.GetParameter(2))+")";
@@ -1531,7 +1521,7 @@ void BreitWigner_analysis() {
 
     TF1 BreitWigner_fit_raw_scaled("BreitWigner_fit_raw_scaled", "[0]*TMath::BreitWigner(x,[1],[2])", 200, 1400);
     BreitWigner_fit_raw_scaled.SetParameters(raw_scale*raw_fit_params[0], raw_fit_params[1], raw_fit_params[2]);
-    BreitWigner_fit_raw_scaled.SetLineColor(kCyan);
+    BreitWigner_fit_raw_scaled.SetLineColor(kCyan+1);
     BreitWigner_fit_raw_scaled.SetLineStyle(8);
     BreitWigner_fit_raw_scaled.DrawCopy("Same");
 
@@ -1868,6 +1858,29 @@ void BreitWigner_analysis() {
     cout << "Landau location = "+to_string(results["Landau_location"])+"±"+to_string(results["Landau_location_err"]) << endl;
     cout << "Landau scale = "+to_string(results["Landau_scale"])+"±"+to_string(results["Landau_scale_err"]) << endl;
     cout << "constant background = "+to_string(results["constant_background"])+"±"+to_string(results["constant_background_err"]) << endl;
+
+    cout << endl;
+
+    float empty_bins = 0;
+    for (int i=0; i<200; ++i) {
+        if (projection->GetBinContent(i)<1) {
+            ++empty_bins;
+        }
+    }
+    results["empty_bins"] = empty_bins;
+    
+    float raw_empty_bins = 0;
+    for (int i=0; i<200; ++i) {
+        if (raw_projection->GetBinContent(i)<1) {
+            ++raw_empty_bins;
+        }
+    }
+    results["raw_empty_bins"] = raw_empty_bins;
+
+    cout << "empty bins = "+to_string(results["empty_bins"]) << endl;
+    cout << "raw empty bins = "+to_string(results["raw_empty_bins"]) << endl;
+
+    //278.599/(200-14-(2*0.65*40.019724)/6)
 
     /*
     TMinuit *gMinuit = new TMinuit(3);
