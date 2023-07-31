@@ -1,4 +1,4 @@
-TARGETS = 4_track_glueball_analysis
+TARGETS = summary_analysis
 FLAGS = -g0 -O3 -D__USE_XOPEN2K8
 
 DEPEND = include/*.h
