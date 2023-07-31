@@ -275,11 +275,10 @@ void fcn_gaussian(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t 
             continue;
         } 
         delta  = enforce_interval(projection->GetBinCenter(i), fcn_gaussian_min, fcn_gaussian_max)*(projection->GetBinContent(i)-func_gaussian(projection->GetBinCenter(i),par))/projection->GetBinError(i);
-        //cout << "delta " << i << ": " << delta << endl;
         chisq += delta*delta;
     }
     f = chisq;
-    //cout << "chisq: " << chisq << endl << endl;
+    cout << "chisq: " << chisq << endl;
 }
 
 static float raw_fcn_gaussian_min;
@@ -528,7 +527,7 @@ void Monte_Carlo_4_track_glueball_analysis() {
     TTreeReader Reader(tree);
     //TTreeReader Reader("tree", file);
 
-    auto rho_masses = new TH2F("rho_masses", "Masses of potential rho particles with impact parameter cuts;m1/MeV;m2/MeV",200,200,1400,200,200,1400);
+    auto rho_masses = new TH2F("rho_masses", ";particle 1 mass (MeV);particle 2 mass (MeV)",200,200,1400,200,200,1400);
     auto rho_masses_raw = new TH2F("rho_masses_raw", ";particle 1 mass (MeV);particle 2 mass (MeV)",200,200,1400,200,200,1400);
 
     auto dxy_maximum_vs_rho_m1 = new TH2F("dxy_maximum_vs_rho_m1", ";dxy maximum (cm);particle 1 mass (MeV)",200,0,1,200,200,1400);
@@ -875,18 +874,23 @@ void Monte_Carlo_4_track_glueball_analysis() {
 //          GAUSS FIT
 //////////////////////////////////
 
+    float fit_width = results["secondary_rho_gaussian_fit_std_dev"];
+
     dynamic_rho_mass = static_rho_mass;
     difference = 1.;
     i = 0;
     repeats = 0;
     peak1 = -1;
     peak2 = -1;
+    cout << "START" << endl;
     while (difference > i*0.0001) {
 
         projection = rho_masses->ProjectionX("X_projection", (dynamic_rho_mass-allowed_rho_mass_difference-200)/6, (dynamic_rho_mass+allowed_rho_mass_difference-200)/6);
         //projection = rho_masses->ProjectionX("X_projection");
 
         projection->Draw();
+
+        cout << "LOOP" << endl;
 
 /////////////////////////////////////
 
@@ -896,8 +900,8 @@ void Monte_Carlo_4_track_glueball_analysis() {
         //fcn_BreitWigner_min = dynamic_rho_mass - 80;
         //fcn_BreitWigner_max = dynamic_rho_mass + 80;
 
-        fcn_gaussian_min = dynamic_rho_mass - results["secondary_rho_gaussian_fit_std_dev"];
-        fcn_gaussian_max = dynamic_rho_mass + results["secondary_rho_gaussian_fit_std_dev"];
+        fcn_gaussian_min = dynamic_rho_mass - fit_width;
+        fcn_gaussian_max = dynamic_rho_mass + fit_width;
 
         TMinuit *gMinuit1 = new TMinuit(3);
         //gMinuit1->Command("SET PRINT -1");
@@ -968,11 +972,35 @@ void Monte_Carlo_4_track_glueball_analysis() {
         }
     }
 
+    cout << "STOP" << endl;
+
     results["rho_Gauss_peak"] = val2;
 
-    TF1 gaussian_fit("gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - 60, dynamic_rho_mass + 60);
-    gaussian_fit.SetParameters(val1, val2, val3);
-    gaussian_fit.DrawCopy("Same");
+    TF1 gaussian_fit_1("gaussian_fit_1", "[0]*TMath::Gaus(x,[1],[2])", 200, dynamic_rho_mass - 60);
+    gaussian_fit_1.SetParameters(val1, val2, val3);
+    gaussian_fit_1.SetLineStyle(2);
+    gaussian_fit_1.DrawCopy("Same");
+
+    TF1 gaussian_fit_2("gaussian_fit_1", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - 60, dynamic_rho_mass + 60);
+    gaussian_fit_2.SetParameters(val1, val2, val3);
+    gaussian_fit_2.DrawCopy("Same");
+
+    TF1 gaussian_fit_3("gaussian_fit_1", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass + 60, 1400);
+    gaussian_fit_3.SetParameters(val1, val2, val3);
+    gaussian_fit_3.SetLineStyle(2);
+    gaussian_fit_3.DrawCopy("Same");
+
+    projection->SetTitle("");
+    projection->SetYTitle("Events / 6 MeV");
+    projection->SetXTitle("Mass (MeV)");
+
+    writeExtraText = true;
+    extraText  = "Simulation";
+    CMS_lumi(projections, 17, 11);
+
+    cout << "limits: " + to_string(dynamic_rho_mass - fit_width) + " -- " + to_string(dynamic_rho_mass + fit_width) << endl;
+
+    
 
 //////////////////////
 //          BreitWigner
