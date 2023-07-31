@@ -516,8 +516,6 @@ string rounded(float value, int decimals) {
     return output;
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 /*
 int main() {
     BreitWigner_analysis();
@@ -1950,6 +1948,4 @@ variance cuts:
 
 120.558868 ± 13.010889
 118.874001 ± 23.329580
-<<<<<<< HEAD
-<<<<<<< HEAD
 */
