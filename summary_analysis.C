@@ -71,13 +71,11 @@ class Track {
         }
 
         void calculate_dEdx(){
-            if (total_deltaE == 0) {
-                calculate_total_deltaE();
+            float sum = 0;
+            for (Detection* detection : detections) {
+                sum += (detection->deltaE)/(detection->path_length);
             }
-            if (total_path_length == 0) {
-                calculate_total_path_length();
-            }
-            dEdx = total_deltaE/total_path_length;
+            dEdx = sum/detections.size();
         }
 };
 
@@ -120,11 +118,11 @@ void summary_analysis() {
     const string filenames[] = {"./ntuples/summary_00.root"};//"./ntuples/summary_01.root"
 
     auto dEdx = new TH2F("dEdx", ";p;dEdx",200,0,2.5,200,0,120);
-    auto dE = new TH1F("dEdx", "asd;dsa",200,0,2);
+    auto path_vs_dE = new TH2F("path_vs_dE", ";path length;delta E",200,0,0.01,200,0,0.5);
+    auto track_dEdx = new TH1F("track_dEdx", ";dE/dx;detections",200,0,100);
     
-    map<int, int> detectors;
+    //map<int, int> detectors;
 
-    Float_t maximum = 0;
 
     for (string filename : filenames) {
         
@@ -154,18 +152,15 @@ void summary_analysis() {
 
 
         while (Reader.Next()) {
+            if (*tree_pt != previous_tree_pt && previous_tree_pt != 0) {
 
-            if (*tree_pt != previous_tree_pt) {
-                /*
                 track->calculate_all();
                 dEdx->Fill(track->average_p, track->dEdx);
                 track->reset();
-                */
+                
             }
             previous_tree_pt = *tree_pt;
-
-            /*
-            vector<int> detections;
+            
 
             Detection* detection = new Detection();
             detection->detector_id = *tree_detector_id;
@@ -178,47 +173,16 @@ void summary_analysis() {
             detection->kaon = *tree_kaon;
             detection->clean_RP_conf = *tree_clean_RP_conf;
 
-
             track->detections.push_back(detection);
-            */
 
-            
-            if (*tree_pt != previous_tree_pt) {
-                cout << endl;
-            }
-
-            //cout << *tree_detector_id << "-" << set_length(*tree_chip_id, 2) << ": " << set_length(*tree_momentum, 9) << ", " << set_length(*tree_pt, 9) << ", " << set_length(*tree_path_length, 9) << ", " << set_length(*tree_deltaE, 9) << ", " << set_length(*tree_eta, 9) << ", " << *tree_kaon << ", " << *tree_clean_RP_conf << endl;
-
-            dE->Fill(*tree_deltaE);
-
-            if (maximum < *tree_deltaE) {
-                maximum = *tree_deltaE;
-            }
-
-            /*
-            int detector_id = *tree_detector_id;
-            if (auto search = detectors.find(detector_id); search != detectors.end()) {
-                detectors[detector_id] += 1;
-            } else {
-                detectors[detector_id] = 1;
-            }
-            */
         }
     }
-    /*
-    unsigned long int detector_count = 0;
-    for (const auto& [key, value] : detectors) {
-        //if (value > 1) {
-        detector_count += 1;
-        cout << to_string(key) + ": " + to_string(value) << endl;
-        //}
-    }
-    cout << "Detector count: " + to_string(detector_count) << endl;
-    */
+
+
 
     auto base_canvas = new TCanvas("base_canvas","base_canvas");
-    dE->Draw();
-    //dEdx->Draw("Colz");
-    //detector_ids->Draw();
+
+    dEdx->Draw("Colz");
+
 
 }
