@@ -10,6 +10,7 @@
 #include "TArrow.h"
 #include "TLatex.h"
 #include "TH2.h"
+#include "TH2F.h"
 #include "TStyle.h"
 #include "TTree.h"
 #include "TFile.h"
@@ -20,6 +21,7 @@
 #include "TMinuit.h"
 
 using namespace std;
+
 
 class Detection {
     public:
@@ -93,13 +95,11 @@ class Track {
         }
 
         void calculate_dEdx(){
-            if (total_deltaE == 0) {
-                calculate_total_deltaE();
+            float sum = 0;
+            for (Detection* detection : detections) {
+                sum += (detection->deltaE)/(detection->path_length);
             }
-            if (total_path_length == 0) {
-                calculate_total_path_length();
-            }
-            dEdx = total_deltaE/total_path_length;
+            dEdx = sum/detections.size();
         }
 };
 
@@ -139,11 +139,18 @@ string set_length(int value, int length) {
 
 int main() {
 
-    const string filenames[] = {"/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_00.root"};//"./ntuples/summary_01.root"
-
-    auto dEdx = new TH2F("dEdx", ";p;dEdx",200,0,2.5,200,0,120);
+    const string filenames[] = {"/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_00.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_01.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_02.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_03.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_04.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_05.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_06.root"};
     
-    map<int, int> detectors;
+/*
+{"/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_00.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_01.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_02.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_03.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_04.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_05.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_06.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_07.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_08.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_09.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_10.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_11.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_12.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_13.root", "/eos/cms/store/group/phys_diffraction/CMSTotemLowPU2018/skim/data2/TOTEM2/log/Studies/perfect_ones_to_be_copied_back/with_protons/Results/Ntuples/summary_14.root"}
+*/
+
+    TH2F* dEdx = new TH2F("dEdx", ";p;dEdx",200,0,2.5,200,0,120);
+    auto path_vs_dE = new TH2F("path_vs_dE", ";path length;delta E",200,0,0.01,200,0,0.5);
+    auto track_dEdx = new TH1F("track_dEdx", ";dE/dx;detections",200,0,100);
+    
+    //map<int, int> detectors;
+
 
     for (string filename : filenames) {
         
@@ -171,17 +178,17 @@ int main() {
 
         Track* track = new Track();
 
-        while (Reader.Next()) {
 
-            if (*tree_pt != previous_tree_pt) {
+        while (Reader.Next()) {
+            if (*tree_pt != previous_tree_pt && previous_tree_pt != 0) {
+
                 track->calculate_all();
                 dEdx->Fill(track->average_p, track->dEdx);
                 track->reset();
+                
             }
-
             previous_tree_pt = *tree_pt;
-
-            vector<int> detections;
+            
 
             Detection* detection = new Detection();
             detection->detector_id = *tree_detector_id;
@@ -194,47 +201,17 @@ int main() {
             detection->kaon = *tree_kaon;
             detection->clean_RP_conf = *tree_clean_RP_conf;
 
-
             track->detections.push_back(detection);
 
-            /*
-            if (*tree_pt != previous_tree_pt) {
-                //cout << endl;
-            }
-            previous_tree_pt = *tree_pt;
-
-            if (*tree_momentum > 999) {
-                cout << *tree_detector_id << "-" << set_length(*tree_chip_id, 2) << ": " << set_length(*tree_momentum, 9) << ", " << set_length(*tree_pt, 9) << ", " << set_length(*tree_path_length, 9) << ", " << set_length(*tree_deltaE, 9) << ", " << set_length(*tree_eta, 9) << ", " << *tree_kaon << ", " << *tree_clean_RP_conf << endl;
-            }
-            */
-
-            /*
-            int detector_id = *tree_detector_id;
-            if (auto search = detectors.find(detector_id); search != detectors.end()) {
-                detectors[detector_id] += 1;
-            } else {
-                detectors[detector_id] = 1;
-            }
-            */
         }
     }
-    /*
-    unsigned long int detector_count = 0;
-    for (const auto& [key, value] : detectors) {
-        //if (value > 1) {
-        detector_count += 1;
-        cout << to_string(key) + ": " + to_string(value) << endl;
-        //}
-    }
-    cout << "Detector count: " + to_string(detector_count) << endl;
-    */
+
 
 
     auto base_canvas = new TCanvas("base_canvas","base_canvas");
-    cout << "DRAWING" << endl;
+
     dEdx->Draw("Colz");
+    
     base_canvas->Print("dEdx_graph.pdf");
-    cout << "FINISHED DRAWING" << endl;
-    //detector_ids->Draw();
 
 }
