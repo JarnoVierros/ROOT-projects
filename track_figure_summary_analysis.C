@@ -71,11 +71,13 @@ class Track {
         }
 
         void calculate_dEdx(){
-            float sum = 0;
-            for (Detection* detection : detections) {
-                sum += (detection->deltaE)/(detection->path_length);
+            if (total_deltaE == 0) {
+                calculate_total_deltaE();
             }
-            dEdx = sum/detections.size();
+            if (total_path_length == 0) {
+                calculate_total_path_length();
+            }
+            dEdx = total_deltaE/total_path_length;
         }
 };
 
@@ -113,16 +115,18 @@ string set_length(int value, int length) {
     return final_string;
 }
 
-void summary_analysis() {
+void track_figure_summary_analysis() {
 
     const string filenames[] = {"./ntuples/summary_00.root"};//"./ntuples/summary_01.root"
 
-    //auto dEdx = new TH2F("dEdx", ";p;dEdx",200,0,2.5,200,0,120);
-    //auto path_vs_dE = new TH2F("path_vs_dE", ";path length;delta E",200,0,0.01,200,0,0.5);
-    auto momentum_distribution = new TH1F("momentum_distribution", ";momentum;detections",200,0,5);
+    auto dEdx = new TH2F("dEdx", ";p;dEdx",200,0,2.5,200,0,120);
+    auto path_vs_dE = new TH2F("path_vs_dE", ";path length;delta E",200,0,0.01,200,0,0.5);
+    auto track_dEdx = new TH1F("track_dEdx", ";dE/dx;detections",200,0,100);
     
     //map<int, int> detectors;
 
+    Float_t maximum = 0;
+    int counter = 0;
 
     for (string filename : filenames) {
         
@@ -155,11 +159,38 @@ void summary_analysis() {
             if (*tree_pt != previous_tree_pt && previous_tree_pt != 0) {
 
                 track->calculate_all();
-                //dEdx->Fill(track->average_p, track->dEdx);
+
+                if (-1 < counter) {
+                    for (Detection* detection : track->detections) {
+                        path_vs_dE->Fill(detection->path_length, detection->deltaE);
+                        track_dEdx->Fill((detection->deltaE)/(detection->path_length));
+                    }
+
+                    auto base_canvas = new TCanvas("base_canvas","base_canvas");
+                    path_vs_dE->Draw("Colz");
+
+                    auto projection = path_vs_dE->ProjectionY("projection");
+                    auto projection_canvas = new TCanvas("projection_canvas","projection_canvas");
+                    projection->Draw();
+
+                    auto track_dEdx_canvas = new TCanvas("track_dEdx_canvas","track_dEdx_canvas");
+                    track_dEdx->Draw("Colz");
+
+                    unique_ptr<TFile> rootFile(TFile::Open("track_dEdx.root", "RECREATE"));
+                    rootFile->WriteObject(&track_dEdx, "track_dEdx");
+
+                    break;
+                }
+                ++counter;
+
+                dEdx->Fill(track->average_p, track->dEdx);
                 track->reset();
                 
             }
+            
             previous_tree_pt = *tree_pt;
+
+            
             
 
             Detection* detection = new Detection();
@@ -173,18 +204,18 @@ void summary_analysis() {
             detection->kaon = *tree_kaon;
             detection->clean_RP_conf = *tree_clean_RP_conf;
 
-            momentum_distribution->Fill(detection->pt);
 
             track->detections.push_back(detection);
+            
 
         }
     }
 
 
 
-    auto base_canvas = new TCanvas("base_canvas","base_canvas");
+    //auto base_canvas = new TCanvas("base_canvas","base_canvas");
 
-    momentum_distribution->Draw("Colz");
+    //dEdx->Draw("Colz");
 
 
 }
