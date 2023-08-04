@@ -423,9 +423,12 @@ void raw_fcn_LanBreWig(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, I
     //cout << "chisq: " << chisq << endl << endl;
 }
 
+static int used_bins = 0;
 void fcn_LanBreWig_fullfit(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
     const Int_t nbins = 200;
     Int_t i;
+
+    used_bins = 0;
 
     //calculate chisquare
     Double_t chisq = 0;
@@ -436,14 +439,20 @@ void fcn_LanBreWig_fullfit(Int_t &npar, Double_t *gin, Double_t &f, Double_t *pa
         } 
         delta  = (enforce_interval(projection->GetBinCenter(i), 200, fcn_Landau_K_gap_min)+enforce_interval(projection->GetBinCenter(i), fcn_Landau_K_gap_max, 1400))*(projection->GetBinContent(i)-func_LanBreWig_fullfit(projection->GetBinCenter(i),par))/(projection->GetBinError(i));
         chisq += delta*delta;
+        if (delta != 0) {
+            ++used_bins;
+        }
     }
     f = chisq;
     //cout << "chisq: " << chisq << endl;
 }
 
+static int raw_used_bins = 0;
 void raw_fcn_LanBreWig_fullfit(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
     const Int_t nbins = 200;
     Int_t i;
+
+    raw_used_bins = 0;
 
     //calculate chisquare
     Double_t chisq = 0;
@@ -454,6 +463,9 @@ void raw_fcn_LanBreWig_fullfit(Int_t &npar, Double_t *gin, Double_t &f, Double_t
         } 
         delta  = (enforce_interval(raw_projection->GetBinCenter(i), 200, fcn_Landau_K_gap_min)+enforce_interval(raw_projection->GetBinCenter(i), fcn_Landau_K_gap_max, 1400))*(raw_projection->GetBinContent(i)-func_LanBreWig_fullfit(raw_projection->GetBinCenter(i),par))/(raw_projection->GetBinError(i));
         chisq += delta*delta;
+        if (delta != 0) {
+            ++raw_used_bins;
+        }
     }
     f = chisq;
     //cout << "chisq: " << chisq << endl << endl;
@@ -493,7 +505,7 @@ string rounded(float value, int decimals) {
     return output;
 }
 
-void BreitWigner_analysis() {
+void four_track_glueball_analysis() {
 
     const string filename = "./ntuples/TOTEM43.root"; //"TOTEM43.root", kpkm.roo, 110000.root, rho.root, MinBias.root
     bool monte_carlo = false;
@@ -502,19 +514,19 @@ void BreitWigner_analysis() {
     }
 
     const float pion_mass = 139.57039;//139.57039
-    const float static_rho_mass = 733.725188; //720, 770, 743, 775.02
+    const float static_rho_mass = 736.659986;//use rho gauss peak 720, 770, 743, 775.02
     float dynamic_rho_mass = static_rho_mass;
-    const float static_K_mass = 498.170974;
+    const float static_K_mass = 498.171122;
     float dynamic_K_mass = static_K_mass;
 
     const float allowed_px_difference = 200;
     const float allowed_py_difference = 200;
     const float allowed_dxy_variance = 0.15;
     const float allowed_dz_variance = 0.2;
-    float allowed_rho_mass_difference = 212.210888;
+    float allowed_rho_mass_difference = 212.170303;
     const float allowed_rho_mass_difference_supercut = 50;
     
-    float raw_K_radius = 37.935224;
+    float raw_K_radius = 40.019724;
     float K_radius = 0.65*raw_K_radius;
     const float allowed_greatest_dxy = 0.2; //0.2
     const float allowed_greatest_dz = 0.5; //0.6
@@ -526,7 +538,7 @@ void BreitWigner_analysis() {
     TTreeReader Reader(tree);
     //TTreeReader Reader("tree", file);
 
-    auto rho_masses = new TH2F("rho_masses", "Masses of potential rho particles with impact parameter cuts;m1/MeV;m2/MeV",200,200,1400,200,200,1400);
+    auto rho_masses = new TH2F("rho_masses", ";m1/MeV;m2/MeV",200,200,1400,200,200,1400);
     auto rho_masses_raw = new TH2F("rho_masses_raw", ";particle 1 mass (MeV);particle 2 mass (MeV)",200,200,1400,200,200,1400);
 
     auto prot_px_vs_diff_px = new TH2F("prot_px_vs_diff_px", ";proton px (MeV);diffractive px (MeV)",200,-2000,2000,200,-2000,2000);
@@ -545,8 +557,8 @@ void BreitWigner_analysis() {
     auto dxy_maximum_vs_rho_m1 = new TH2F("dxy_maximum_vs_rho_m1", ";dxy maximum (cm);particle 1 mass (MeV)",200,0,1,200,200,1400);
     auto dz_maximum_vs_rho_m1 = new TH2F("dz_maximum_vs_rho_m1", ";dz maximum (cm);particle 1 mass (MeV)",200,0.2,2,200,200,1400);
 
-    auto dxy_maximum_rho_distribution = new TH1F("dxy_maximum_rho_distribution", "dxy maximum distribution near rho mass;dxy maximum",200,0,1);
-    auto dz_maximum_rho_distribution = new TH1F("dz_maximum_rho_distribution", "dz maximum distribution near rho mass;dz maximum",200,0.2,2);
+    auto dxy_maximum_rho_distribution = new TH1F("dxy_maximum_rho_distribution", ";dxy maximum (cm)",200,0,1);
+    auto dz_maximum_rho_distribution = new TH1F("dz_maximum_rho_distribution", ";dz maximum (cm)",200,0.2,2);
 
     auto raw_origin_mass = new TH1F("raw_origin_mass", "Mass of the four track origin without cuts;mass/MeV",200,500,3000);
     auto origin_mass = new TH1F("origin_mass", "Mass of the four track origin with cuts;mass/MeV",200,500,3000);
@@ -735,81 +747,137 @@ void BreitWigner_analysis() {
     auto raw_secondary_projection = rho_masses->ProjectionY("Y_projection_raw");
     raw_secondary_projection->Draw();
 
-    float secondary_rho_peak = 7.36088e+02;
+    raw_secondary_projection->SetYTitle("Events / 6 MeV");
+    raw_secondary_projection->SetXTitle("Mass (MeV)");
+    CMS_lumi(raw_secondary_projection_canvas, 17, 11);
+
+    float secondary_rho_peak = 735.559326;
     float secondary_rho_min = secondary_rho_peak - 40;
     float secondary_rho_max = secondary_rho_peak + 40;
 
     TF1 secondary_gaussian_fit("secondary_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", secondary_rho_min, secondary_rho_max);
     secondary_gaussian_fit.SetParameters(6.54848e+02, secondary_rho_peak, 7.43751e+01);
-    raw_secondary_projection->Fit(&secondary_gaussian_fit, "","",secondary_rho_min, secondary_rho_max);
-    secondary_gaussian_fit.DrawCopy("Same");
+    auto secondary_gaussian_fit_result = raw_secondary_projection->Fit(&secondary_gaussian_fit, "S","",secondary_rho_min, secondary_rho_max);
 
+    float secondary_gaussian_fit_coefficient = secondary_gaussian_fit.GetParameter(0);
     float secondary_gaussian_fit_mean = secondary_gaussian_fit.GetParameter(1);
     float secondary_gaussian_fit_std_deviation = secondary_gaussian_fit.GetParameter(2);
 
+    TF1 secondary_gaussian_fit_low("secondary_gaussian_fit_low", "[0]*TMath::Gaus(x,[1],[2])", 200, secondary_rho_min);
+    secondary_gaussian_fit_low.SetParameters(secondary_gaussian_fit_coefficient, secondary_gaussian_fit_mean, secondary_gaussian_fit_std_deviation);
+    secondary_gaussian_fit_low.SetLineStyle(2);
+    secondary_gaussian_fit_low.DrawCopy("Same");
+
+    TF1 secondary_gaussian_fit_high("secondary_gaussian_fit_high", "[0]*TMath::Gaus(x,[1],[2])", secondary_rho_max, 1400);
+    secondary_gaussian_fit_high.SetParameters(secondary_gaussian_fit_coefficient, secondary_gaussian_fit_mean, secondary_gaussian_fit_std_deviation);
+    secondary_gaussian_fit_high.SetLineStyle(2);
+    secondary_gaussian_fit_high.DrawCopy("Same");
+
     allowed_rho_mass_difference = 3*secondary_gaussian_fit_std_deviation;
 
-
+    results["secondary_rho_gaussian_fit_coefficient"] = secondary_gaussian_fit_coefficient;
+    results["secondary_rho_gaussian_fit_coefficient_error"] = secondary_gaussian_fit_result->ParError(0);
     results["secondary_rho_gaussian_fit_peak"] = secondary_gaussian_fit_mean;
+    results["secondary_rho_gaussian_fit_peak_error"] = secondary_gaussian_fit_result->ParError(1);
     results["secondary_rho_gaussian_fit_std_dev"] = secondary_gaussian_fit_std_deviation;
+    results["secondary_rho_gaussian_fit_std_dev_error"] = secondary_gaussian_fit_result->ParError(2);
+    results["secondary_rho_gaussian_fit_chi2/NDF"] = secondary_gaussian_fit_result->MinFcnValue()/secondary_gaussian_fit_result->Ndf();
 
 
-    TLine secondary_gaussian_line_1 = TLine(secondary_gaussian_fit_mean-3*secondary_gaussian_fit_std_deviation, 0, secondary_gaussian_fit_mean-3*secondary_gaussian_fit_std_deviation, 1.05*raw_secondary_projection->GetMaximum());
+    TLine secondary_gaussian_line_1 = TLine(secondary_gaussian_fit_mean-3*secondary_gaussian_fit_std_deviation, 0, secondary_gaussian_fit_mean-3*secondary_gaussian_fit_std_deviation, 1.09*raw_secondary_projection->GetMaximum());
+    secondary_gaussian_line_1.SetLineWidth(2);
     secondary_gaussian_line_1.DrawClone();
 
-    TLine secondary_gaussian_line_2 = TLine(secondary_gaussian_fit_mean+3*secondary_gaussian_fit_std_deviation, 0, secondary_gaussian_fit_mean+3*secondary_gaussian_fit_std_deviation, 1.05*raw_secondary_projection->GetMaximum());
+    TLine secondary_gaussian_line_2 = TLine(secondary_gaussian_fit_mean+3*secondary_gaussian_fit_std_deviation, 0, secondary_gaussian_fit_mean+3*secondary_gaussian_fit_std_deviation, 1.09*raw_secondary_projection->GetMaximum());
+    secondary_gaussian_line_2.SetLineWidth(2);
     secondary_gaussian_line_2.DrawClone();
 
 
-    auto dxy_maximum_distribution = new TCanvas("dxy_maximum_distribution_canvas","dxy_maximum_distribution_canvas");
+    auto dxy_maximum_distribution_canvas = new TCanvas("dxy_maximum_distribution_canvas","dxy_maximum_distribution_canvas");
     dxy_maximum_rho_distribution->Draw();
 
-    float dxy_distribution_peak = 1.51457e-01;
+    dxy_maximum_rho_distribution->SetYTitle("Events / 5 mm");
+    dxy_maximum_rho_distribution->SetXTitle("dxy maximum (cm)");
+    CMS_lumi(dxy_maximum_distribution_canvas, 17, 33);
+
+    float dxy_distribution_peak = 0.151348;
     float dxy_distribution_fit_range = 0.05;
     TF1 dxy_distribution_gaussian_fit("dxy_distribution_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dxy_distribution_peak-dxy_distribution_fit_range, dxy_distribution_peak+dxy_distribution_fit_range);
     dxy_distribution_gaussian_fit.SetParameters(1.56550e+03, dxy_distribution_peak, 4.40377e-02);
-    dxy_maximum_rho_distribution->Fit(&dxy_distribution_gaussian_fit, "","",dxy_distribution_peak-dxy_distribution_fit_range, dxy_distribution_peak+dxy_distribution_fit_range);
+    auto dxy_distribution_gaussian_fit_result = dxy_maximum_rho_distribution->Fit(&dxy_distribution_gaussian_fit, "S","",dxy_distribution_peak-dxy_distribution_fit_range, dxy_distribution_peak+dxy_distribution_fit_range);
     secondary_gaussian_fit.DrawCopy("Same");
 
+    float dxy_rho_distribution_coefficient = dxy_distribution_gaussian_fit.GetParameter(0);
     float dxy_rho_distribution_mean = dxy_distribution_gaussian_fit.GetParameter(1);
     float dxy_rho_distribution_std_deviation = dxy_distribution_gaussian_fit.GetParameter(2);
 
+    TF1 dxy_distribution_gaussian_fit_low("dxy_distribution_gaussian_fit_low", "[0]*TMath::Gaus(x,[1],[2])", 0, dxy_distribution_peak-dxy_distribution_fit_range);
+    dxy_distribution_gaussian_fit_low.SetParameters(dxy_rho_distribution_coefficient, dxy_rho_distribution_mean, dxy_rho_distribution_std_deviation);
+    dxy_distribution_gaussian_fit_low.SetLineStyle(2);
+    dxy_distribution_gaussian_fit_low.DrawCopy("Same");
+
+    TF1 dxy_distribution_gaussian_fit_high("dxy_distribution_gaussian_fit_high", "[0]*TMath::Gaus(x,[1],[2])", dxy_distribution_peak+dxy_distribution_fit_range, 1);
+    dxy_distribution_gaussian_fit_high.SetParameters(dxy_rho_distribution_coefficient, dxy_rho_distribution_mean, dxy_rho_distribution_std_deviation);
+    dxy_distribution_gaussian_fit_high.SetLineStyle(2);
+    dxy_distribution_gaussian_fit_high.DrawCopy("Same");
+
+    results["dxy_rho_distribution_coefficient"] = dxy_rho_distribution_coefficient;
+    results["dxy_rho_distribution_coefficient_error"] = dxy_distribution_gaussian_fit_result->ParError(0);
     results["dxy_rho_distribution_mean"] = dxy_rho_distribution_mean;
+    results["dxy_rho_distribution_mean_error"] = dxy_distribution_gaussian_fit_result->ParError(1);
     results["dxy_rho_distribution_std_deviation"] = dxy_rho_distribution_std_deviation;
+    results["dxy_rho_distribution_std_deviation_error"] = dxy_distribution_gaussian_fit_result->ParError(2);
+    results["dxy_rho_distribution_fit_chi2/NDF"] = dxy_distribution_gaussian_fit_result->MinFcnValue()/dxy_distribution_gaussian_fit_result->Ndf();
 
     TLine dxy_distribution_line_1 = TLine(dxy_rho_distribution_mean, 0, dxy_rho_distribution_mean, 1.05*dxy_maximum_rho_distribution->GetMaximum());
+    dxy_distribution_line_1.SetLineWidth(2);
     dxy_distribution_line_1.DrawClone();
 
     TLine dxy_distribution_line_2 = TLine(dxy_rho_distribution_mean+dxy_rho_distribution_std_deviation, 0, dxy_rho_distribution_mean+dxy_rho_distribution_std_deviation, 1.05*dxy_maximum_rho_distribution->GetMaximum());
+    dxy_distribution_line_2.SetLineWidth(2);
     dxy_distribution_line_2.DrawClone();
 
     TLine dxy_distribution_line_3 = TLine(dxy_rho_distribution_mean-dxy_rho_distribution_std_deviation, 0, dxy_rho_distribution_mean-dxy_rho_distribution_std_deviation, 1.05*dxy_maximum_rho_distribution->GetMaximum());
+    dxy_distribution_line_3.SetLineWidth(2);
     dxy_distribution_line_3.DrawClone();
 
     //allowed_greatest_dxy = dxy_rho_distribution_mean + dxy_rho_distribution_std_deviation;
 
 
-    auto dz_maximum_distribution = new TCanvas("dz_maximum_distribution_canvas","dz_maximum_distribution_canvas");
+    auto dz_maximum_distribution_canvas = new TCanvas("dz_maximum_distribution_canvas","dz_maximum_distribution_canvas");
     dz_maximum_rho_distribution->Draw();
+
+    dz_maximum_rho_distribution->SetYTitle("Events / 9 mm");
+    dz_maximum_rho_distribution->SetXTitle("dz maximum (cm)");
+    CMS_lumi(dz_maximum_distribution_canvas, 17, 33);
 
     TF1 dz_distribution_Landau_fit("dz_distribution_Landau_fit", "[0]*TMath::Landau(x,[1],[2])", 0.2, 2);
     dz_distribution_Landau_fit.SetParameters(1200, 1, 0.1);
-    dz_maximum_rho_distribution->Fit(&dz_distribution_Landau_fit, "","",0.2, 2);
+    auto dz_maximum_rho_distribution_fit_result = dz_maximum_rho_distribution->Fit(&dz_distribution_Landau_fit, "S","",0.2, 2);
     dz_distribution_Landau_fit.DrawCopy("Same");
 
+    float dz_rho_distribution_coefficient = dz_distribution_Landau_fit.GetParameter(0);
     float dz_rho_distribution_location = dz_distribution_Landau_fit.GetParameter(1);
     float dz_rho_distribution_scale = dz_distribution_Landau_fit.GetParameter(2);
 
+    results["dz_rho_distribution_coefficient"] = dz_rho_distribution_coefficient;
+    results["dz_rho_distribution_coefficient_error"] = dz_maximum_rho_distribution_fit_result->ParError(0);
     results["dz_rho_distribution_location"] = dz_rho_distribution_location;
+    results["dz_rho_distribution_location_error"] = dz_maximum_rho_distribution_fit_result->ParError(1);
     results["dz_rho_distribution_scale"] = dz_rho_distribution_scale;
+    results["dz_rho_distribution_scale_error"] = dz_maximum_rho_distribution_fit_result->ParError(2);
+    results["dz_rho_distribution_fit_chi2/NDF"] = dz_maximum_rho_distribution_fit_result->MinFcnValue()/dz_maximum_rho_distribution_fit_result->Ndf();
 
     TLine dz_distribution_line_1 = TLine(dz_rho_distribution_location, 0, dz_rho_distribution_location, 1.05*dz_maximum_rho_distribution->GetMaximum());
+    dz_distribution_line_1.SetLineWidth(2);
     dz_distribution_line_1.DrawClone();
 
     TLine dz_distribution_line_2 = TLine(dz_rho_distribution_location+dz_rho_distribution_scale, 0, dz_rho_distribution_location+dz_rho_distribution_scale, 1.05*dz_maximum_rho_distribution->GetMaximum());
+    dz_distribution_line_2.SetLineWidth(2);
     dz_distribution_line_2.DrawClone();
 
     TLine dz_distribution_line_3 = TLine(dz_rho_distribution_location-dz_rho_distribution_scale, 0, dz_rho_distribution_location-dz_rho_distribution_scale, 1.05*dz_maximum_rho_distribution->GetMaximum());
+    dz_distribution_line_3.SetLineWidth(2);
     dz_distribution_line_3.DrawClone();
 
     //allowed_greatest_dz = dz_rho_distribution_location + dz_rho_distribution_scale;
@@ -877,6 +945,7 @@ void BreitWigner_analysis() {
 //          RAW GAUSS FIT
 //////////////////////////////////
 
+    float fit_range = 0.8;
     float difference = 1.;
     int i = 0;
     int repeats = 0;
@@ -884,8 +953,8 @@ void BreitWigner_analysis() {
     float peak2 = -1;
     while (difference > i*0.0005) {
 
-        raw_fcn_gaussian_min = dynamic_rho_mass - results["secondary_rho_gaussian_fit_std_dev"];
-        raw_fcn_gaussian_max = dynamic_rho_mass + results["secondary_rho_gaussian_fit_std_dev"];
+        raw_fcn_gaussian_min = dynamic_rho_mass - fit_range*results["secondary_rho_gaussian_fit_std_dev"];
+        raw_fcn_gaussian_max = dynamic_rho_mass + fit_range*results["secondary_rho_gaussian_fit_std_dev"];
 
         TMinuit *gMinuit0 = new TMinuit(3);
         gMinuit0->Command("SET PRINT -1");
@@ -962,7 +1031,7 @@ void BreitWigner_analysis() {
 
     results["raw_rho_Gauss_peak"] = val2;
 
-    TF1 raw_gaussian_fit("raw_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - results["secondary_rho_gaussian_fit_std_dev"], dynamic_rho_mass + results["secondary_rho_gaussian_fit_std_dev"]);
+    TF1 raw_gaussian_fit("raw_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - fit_range*results["secondary_rho_gaussian_fit_std_dev"], dynamic_rho_mass + fit_range*results["secondary_rho_gaussian_fit_std_dev"]);
     raw_gaussian_fit.SetParameters(val1, val2, val3);
     raw_gaussian_fit.DrawCopy("Same");
 
@@ -1137,6 +1206,7 @@ void BreitWigner_analysis() {
     gMinuit04 ->GetParameter(5, val6, err6);
     gMinuit04 ->GetParameter(6, val7, err7);
 
+    results["raw_chi2"] = amin;
 
     results["raw_BreitWigner_coef"] = val1;
     results["raw_BreitWigner_location"] = val2;
@@ -1192,6 +1262,7 @@ void BreitWigner_analysis() {
 //          GAUSS FIT
 //////////////////////////////////
 
+    fit_range = 0.8;
     dynamic_rho_mass = static_rho_mass;
     difference = 1.;
     i = 0;
@@ -1213,8 +1284,8 @@ void BreitWigner_analysis() {
         //fcn_BreitWigner_min = dynamic_rho_mass - 80;
         //fcn_BreitWigner_max = dynamic_rho_mass + 80;
 
-        fcn_gaussian_min = dynamic_rho_mass - results["secondary_rho_gaussian_fit_std_dev"];
-        fcn_gaussian_max = dynamic_rho_mass + results["secondary_rho_gaussian_fit_std_dev"];
+        fcn_gaussian_min = dynamic_rho_mass - fit_range*results["secondary_rho_gaussian_fit_std_dev"];
+        fcn_gaussian_max = dynamic_rho_mass + fit_range*results["secondary_rho_gaussian_fit_std_dev"];
 
         TMinuit *gMinuit1 = new TMinuit(3);
         gMinuit1->Command("SET PRINT -1");
@@ -1287,7 +1358,7 @@ void BreitWigner_analysis() {
 
     results["rho_Gauss_peak"] = val2;
 
-    TF1 gaussian_fit("gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - 60, dynamic_rho_mass + 60);
+    TF1 gaussian_fit("gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dynamic_rho_mass - fit_range*results["secondary_rho_gaussian_fit_std_dev"], dynamic_rho_mass + fit_range*results["secondary_rho_gaussian_fit_std_dev"]);
     gaussian_fit.SetParameters(val1, val2, val3);
     gaussian_fit.DrawCopy("Same");
 
@@ -1442,6 +1513,7 @@ void BreitWigner_analysis() {
     gMinuit5 ->GetParameter(5, val6, err6);
     gMinuit5 ->GetParameter(6, val7, err7);
 
+    results["chi2"] = amin;
 
     results["BreitWigner_coef"] = val1;
     results["BreitWigner_location"] = val2;
@@ -1521,7 +1593,7 @@ void BreitWigner_analysis() {
 
     TF1 BreitWigner_fit_raw_scaled("BreitWigner_fit_raw_scaled", "[0]*TMath::BreitWigner(x,[1],[2])", 200, 1400);
     BreitWigner_fit_raw_scaled.SetParameters(raw_scale*raw_fit_params[0], raw_fit_params[1], raw_fit_params[2]);
-    BreitWigner_fit_raw_scaled.SetLineColor(kCyan+1);
+    BreitWigner_fit_raw_scaled.SetLineColor(kCyan+2);
     BreitWigner_fit_raw_scaled.SetLineStyle(8);
     BreitWigner_fit_raw_scaled.DrawCopy("Same");
 
@@ -1578,19 +1650,21 @@ void BreitWigner_analysis() {
 
     TLine rho_masses_raw_line1 = TLine(200, dynamic_rho_mass-allowed_rho_mass_difference, 1400, dynamic_rho_mass-allowed_rho_mass_difference);
     rho_masses_raw_line1.SetLineColor(2);
+    rho_masses_raw_line1.SetLineWidth(2);
     rho_masses_raw_line1.DrawClone();
 
     TLine rho_masses_raw_line2 = TLine(200, dynamic_rho_mass+allowed_rho_mass_difference, 1400, dynamic_rho_mass+allowed_rho_mass_difference);
     rho_masses_raw_line2.SetLineColor(2);
+    rho_masses_raw_line2.SetLineWidth(2);
     rho_masses_raw_line2.DrawClone();
 
-    TArrow arrow1(850,550,750,710,0.02,"|>");
+    TArrow arrow1(850,500,770,690,0.02,"|>");
     arrow1.SetLineWidth(3);
     arrow1.SetLineColor(0);
     //arrow1.SetFillColor(0);
     arrow1.DrawClone();
 
-    TLatex text1(860,500,"#rho");
+    TLatex text1(860,450,"#rho");
     text1.SetTextColor(0);
     text1.DrawClone();
 
@@ -1626,6 +1700,7 @@ void BreitWigner_analysis() {
 
     TLine line21 = TLine(allowed_greatest_dxy, 200, allowed_greatest_dxy, 1400);
     line21.SetLineColor(2);
+    line21.SetLineWidth(2);
     line21.DrawClone();
 
     auto dz_maximum = new TCanvas("dz_maximum_canvas","dz_maximum_canvas");
@@ -1634,6 +1709,7 @@ void BreitWigner_analysis() {
 
     TLine line22 = TLine(allowed_greatest_dz, 200, allowed_greatest_dz, 1400);
     line22.SetLineColor(2);
+    line22.SetLineWidth(2);
     line22.DrawClone();
 
 
@@ -1822,10 +1898,13 @@ void BreitWigner_analysis() {
     cout << "---RESULTS---" << endl << endl;
 
 
-
-    cout << "second particle gaussian fit peak = "+to_string(results["secondary_rho_gaussian_fit_peak"]) << endl;
-    cout << "second particle gaussian standard deviation = "+to_string(results["secondary_rho_gaussian_fit_std_dev"]) << endl;
+    cout << "second particle gaussian fit coefficient = "+to_string(results["secondary_rho_gaussian_fit_coefficient"])+"±"+results["secondary_rho_gaussian_fit_coefficient_error"] << endl;
+    cout << "second particle gaussian fit peak = "+to_string(results["secondary_rho_gaussian_fit_peak"])+"±"+to_string(results["secondary_rho_gaussian_fit_peak_error"]) << endl;
+    cout << "second particle gaussian standard deviation = "+to_string(results["secondary_rho_gaussian_fit_std_dev"])+"±"+to_string(results["secondary_rho_gaussian_fit_std_dev_error"]) << endl;
+    cout << "second particle gaussian fit chi2/NDF = "+to_string(results["secondary_rho_gaussian_fit_chi2/NDF"]) << endl;
     cout << "allowed rho mass deviation = "+to_string(3*results["secondary_rho_gaussian_fit_std_dev"]) << endl;
+
+    cout << endl;
 
     cout << "K gaussian fit peak = "+to_string(results["raw_K_fit_peak"])+"±"+to_string(results["raw_K_fit_peak_err"]) << endl;
     cout << "K gaussian fit standard deviation = "+to_string(results["raw_K_fit_std_deviation"])+"±"+to_string(results["raw_K_fit_std_deviation_err"]) << endl;
@@ -1833,11 +1912,19 @@ void BreitWigner_analysis() {
     cout << "raw rho Gauss peak = "+to_string(results["raw_rho_Gauss_peak"]) << endl;
     cout << "rho Gauss peak = "+to_string(results["rho_Gauss_peak"]) << endl;
 
-    cout << "dxy rho distribution mean = "+to_string(results["dxy_rho_distribution_mean"]) << endl;
-    cout << "dxy rho distribution standard deviation = "+to_string(results["dxy_rho_distribution_std_deviation"]) << endl;
+    cout << endl;
 
-    cout << "dz rho distribution location = "+to_string(results["dz_rho_distribution_location"]) << endl;
-    cout << "dz rho distribution scale = "+to_string(results["dz_rho_distribution_scale"]) << endl;
+    cout << "dxy rho distribution coefficient = "+to_string(results["dxy_rho_distribution_coefficient"])+"±"+to_string(results["dxy_rho_distribution_coefficient_error"]) << endl;
+    cout << "dxy rho distribution mean = "+to_string(results["dxy_rho_distribution_mean"])+"±"+to_string(results["dxy_rho_distribution_mean_error"]) << endl;
+    cout << "dxy rho distribution standard deviation = "+to_string(results["dxy_rho_distribution_std_deviation"])+"±"+to_string(results["dxy_rho_distribution_std_deviation_error"]) << endl;
+    cout << "dxy rho distribution fit chi2/NDF = "+to_string(results["dxy_rho_distribution_fit_chi2/NDF"]) << endl;
+
+    cout << endl;
+
+    cout << "dz rho distribution coefficient = "+to_string(results["dz_rho_distribution_coefficient"])+"±"+to_string(results["dz_rho_distribution_coefficient_error"]) << endl;
+    cout << "dz rho distribution location = "+to_string(results["dz_rho_distribution_location"])+"±"+to_string(results["dz_rho_distribution_location_error"]) << endl;
+    cout << "dz rho distribution scale = "+to_string(results["dz_rho_distribution_scale"])+"±"+to_string(results["dz_rho_distribution_scale_error"]) << endl;
+    cout << "dz rho distribution fit chi2/NDF = "+to_string(results["dz_rho_distribution_fit_chi2/NDF"]) << endl;
 
     cout << endl;
 
@@ -1858,6 +1945,20 @@ void BreitWigner_analysis() {
     cout << "Landau location = "+to_string(results["Landau_location"])+"±"+to_string(results["Landau_location_err"]) << endl;
     cout << "Landau scale = "+to_string(results["Landau_scale"])+"±"+to_string(results["Landau_scale_err"]) << endl;
     cout << "constant background = "+to_string(results["constant_background"])+"±"+to_string(results["constant_background_err"]) << endl;
+
+    cout << endl;
+
+    cout << "raw chi2 = "+to_string(results["raw_chi2"]) << endl;
+    cout << "chi2 = "+to_string(results["chi2"]) << endl;
+
+    cout << "raw used bins = "+to_string(raw_used_bins) << endl;
+    cout << "used bins = "+to_string(used_bins) << endl;
+
+    cout << "raw degrees of freedom = "+to_string(raw_used_bins-7) << endl;
+    cout << "degrees of freedom = "+to_string(used_bins-7) << endl;
+
+    cout << "raw chi2/DF = "+to_string((results["raw_chi2"])/(raw_used_bins-7)) << endl;
+    cout << "chi2/DF = "+to_string((results["chi2"])/(used_bins-7)) << endl;
 
     cout << endl;
 
