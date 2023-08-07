@@ -1,5 +1,5 @@
 
-void dEdx_analysis() {
+void dEdx_two_track_analysis() {
 
     const string filenames[] = {
         "./ntuples/TOTEM40.root",
