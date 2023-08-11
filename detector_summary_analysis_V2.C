@@ -135,7 +135,7 @@ void detector_summary_analysis_V2() {
         "./ntuples/summary_14.root",
     };
 
-    const int detector_count = 100;
+    const int detector_count = 2;
     const bool manual_mode = false;
     int skips;
 
@@ -152,9 +152,9 @@ void detector_summary_analysis_V2() {
 
     //auto dEdx = new TH2F("dEdx", ";p;dE/dx", 200,0,2.5,200,0,120);
 
-    //const int chosen_ids[] = {470439304}; //303054864, 304099348, 470439304, 304189448, 470311846, 402666794
+    const int chosen_ids[] = {344287236, 402664717}; //303054864, 304099348, 470439304, 304189448, 470311846, 402666794
     const int chosen_chips[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-
+    
     for (string filename : filenames) {
         
         cout << filename << endl;
@@ -167,6 +167,10 @@ void detector_summary_analysis_V2() {
 
         int counter = 0;
         while (Reader.Next()) {
+            if (*tree_detector_id != 344287236 && *tree_detector_id != 402664717) {
+                continue;
+            }
+            skips = 0;
             if (counter<skips) { //+50
                 //cout << "counter skip "<< counter << "/" << skips << endl;
                 ++counter;
@@ -200,7 +204,7 @@ void detector_summary_analysis_V2() {
         }
         break;
     }
-
+    
     for (string filename : filenames) {
         
         cout << filename << endl;

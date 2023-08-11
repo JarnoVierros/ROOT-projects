@@ -55,6 +55,10 @@ class Particle {
         void calculate_mass() {
             m = sqrt(pow(E, 2) - pow(p, 2));
         }
+
+        void calculate_eta() {
+            eta = TMath::ATan(p_z/p);
+        }
 };
 
 class Event {
@@ -531,6 +535,10 @@ void four_track_glueball_analysis() {
     const float allowed_greatest_dxy = 0.2; //0.2
     const float allowed_greatest_dz = 0.5; //0.6
 
+    const float four_track_rho_mass = 739;
+    const float four_track_minimum_rho_mass = four_track_rho_mass - 163*(2.0/3);
+    const float four_track_maximum_rho_mass = four_track_rho_mass + 163*(2.0/3);
+
     map<string, Double_t> results;
 
     TFile *file = TFile::Open(filename.c_str());
@@ -560,20 +568,31 @@ void four_track_glueball_analysis() {
     auto dxy_maximum_rho_distribution = new TH1F("dxy_maximum_rho_distribution", ";dxy maximum (cm)",200,0,1);
     auto dz_maximum_rho_distribution = new TH1F("dz_maximum_rho_distribution", ";dz maximum (cm)",200,0.2,2);
 
-    auto raw_origin_mass = new TH1F("raw_origin_mass", "Mass of the four track origin without cuts;mass/MeV",200,500,3000);
-    auto origin_mass = new TH1F("origin_mass", "Mass of the four track origin with cuts;mass/MeV",200,500,3000);
-    //auto origin_mass = new TH1F("origin_mass", "Mass of the four track origin with cuts;mass/MeV",200,2000,2500);
+    auto raw_four_track_mass = new TH1F("raw_four_track_mass", ";mass (MeV)",200,1000,3000);
+    auto four_track_mass = new TH1F("four_track_mass", ";mass (MeV)",150,1000,3000);
 
-    auto raw_origin_m_vs_rho1_m = new TH2F("raw_origin_m_vs_rho1_m", "Mass of the four track origin compared with mass of first rho particle without cuts;origin mass/MeV;rho1 mass/MeV",200,500,3000,200,200,1400);
-    auto origin_m_vs_rho1_m = new TH2F("origin_m_vs_rho1_m", "Mass of the four track origin compared with mass of first rho particle with cuts;origin mass/MeV;rho1 mass/MeV",200,500,3000,200,200,1400);
+    auto global_track_eta = new TH1F("global_track_eta", "events;eta",200,0,4);
+    auto rho_track_eta = new TH1F("rho_track_eta", "events;eta",200,0,4);
 
-    auto origin_m_vs_rho1_m_supercut = new TH2F("origin_m_vs_rho1_m_supercut", "Mass of the four track origin compared with mass of first rho particle with supercuts;origin mass/MeV;rho1 mass/MeV",200,1000,3000,200,200,1400);
+    auto global_two_track_eta = new TH1F("global_two_track_eta", "events;eta",200,0,4);
+    auto rho_two_track_eta = new TH1F("rho_two_track_eta", "events;eta",200,0,4);
+
+    auto global_four_track_eta = new TH1F("global_four_track_eta", "events;eta",200,0,4);
+    auto rho_four_track_eta = new TH1F("rho_four_track_eta", "events;eta",200,0,4);
+
 
     gStyle->SetOptStat(0);
     gStyle->SetPalette(kCividis);
     rho_masses->Sumw2();
     rho_masses_raw->Sumw2();
-    origin_m_vs_rho1_m_supercut->Sumw2();
+    raw_four_track_mass->Sumw2();
+    four_track_mass->Sumw2();
+    global_track_eta->Sumw2();
+    rho_track_eta->Sumw2();
+    global_two_track_eta->Sumw2();
+    rho_two_track_eta->Sumw2();
+    global_four_track_eta->Sumw2();
+    rho_four_track_eta->Sumw2();
 
     TTreeReaderArray<Float_t> trk_p(Reader, "trk_p");
     TTreeReaderArray<Float_t> trk_pt(Reader, "trk_pt");
@@ -599,6 +618,8 @@ void four_track_glueball_analysis() {
 
         Particle* particles[4];
 
+        bool skip = false;
+
         for (int i=0;i<4;++i) {
             Particle* particle = new Particle(1);
             particle->p = 1000*trk_p[i];
@@ -613,7 +634,17 @@ void four_track_glueball_analysis() {
 
             particle->dxy = trk_dxy[i];
             particle->dz = trk_dz[i];
+
+            if (particle->eta > 1) {
+                skip = true;
+            }
         }
+
+        if (skip) {
+            //continue;
+        }
+
+
         
         /*
         for (Particle* particle : particles) {
@@ -644,6 +675,11 @@ void four_track_glueball_analysis() {
             //cout << "INVALID" << endl << endl;
             continue;
         }
+        
+        for (Particle* particle : particles) {
+            global_track_eta->Fill(particle->eta);
+        }
+        
 
         current_event.calculate_momentum_of_diffractive_system();
         current_event.calculate_proton_momentums();
@@ -654,6 +690,27 @@ void four_track_glueball_analysis() {
         prot_px_vs_diff_px->Fill(current_event.PR_p[0]+current_event.PL_p[0], current_event.diff_p[0]);
         prot_py_vs_diff_py->Fill(current_event.PR_p[1]+current_event.PL_p[1], current_event.diff_p[1]);
         
+
+        rhos[0][0]->calculate_eta();
+        rhos[0][1]->calculate_eta();
+        rhos[1][0]->calculate_eta();
+        rhos[1][1]->calculate_eta();
+
+        global_two_track_eta->Fill(rhos[0][0]->eta);
+        global_two_track_eta->Fill(rhos[0][1]->eta);
+        global_two_track_eta->Fill(rhos[1][0]->eta);
+        global_two_track_eta->Fill(rhos[1][1]->eta);
+
+        Particle* fourtrack_1 = current_event.reconstruct_1_from_2(rhos[0][0], rhos[0][1], 3);
+        raw_four_track_mass->Fill(fourtrack_1->m);
+        fourtrack_1->calculate_eta();
+        global_four_track_eta->Fill(fourtrack_1->eta);
+
+        Particle* fourtrack_2 = current_event.reconstruct_1_from_2(rhos[1][0], rhos[1][1], 3);
+        raw_four_track_mass->Fill(fourtrack_2->m);
+        fourtrack_2->calculate_eta();
+        global_four_track_eta->Fill(fourtrack_2->eta);
+
 
         float raw_masses[2];
         for (int i=0; i<2; ++i) {
@@ -671,7 +728,6 @@ void four_track_glueball_analysis() {
 
             dxy_maximum_vs_rho_m1->Fill(current_event.get_greatest_dxy(), raw_masses[1]);
             dz_maximum_vs_rho_m1->Fill(current_event.get_greatest_dz(), raw_masses[1]);
-            
         }
 
         
@@ -708,9 +764,53 @@ void four_track_glueball_analysis() {
             for (int j=0; j<2; ++j) {
                 Particle* rho = rhos[i][j];
                 masses[j] = rho->m;
-                //cout << "m: " << rho->m << endl;
             }
             rho_masses->Fill(masses[0], masses[1]);
+        }
+
+        bool valid = false;
+        if (four_track_minimum_rho_mass < rhos[0][0]->m && rhos[0][0]->m < four_track_maximum_rho_mass && four_track_minimum_rho_mass < rhos[0][1]->m && rhos[0][1]->m < four_track_maximum_rho_mass) {
+
+            Particle* fourtrack_1 = current_event.reconstruct_1_from_2(rhos[0][0], rhos[0][1], 3);
+            four_track_mass->Fill(fourtrack_1->m);
+            fourtrack_1->calculate_eta();
+            rho_four_track_eta->Fill(fourtrack_1->eta);
+
+            if (fourtrack_1->eta < 0.25) {
+
+                rhos[0][0]->calculate_eta();
+                rhos[0][1]->calculate_eta();
+                rho_two_track_eta->Fill(rhos[0][0]->eta);
+                rho_two_track_eta->Fill(rhos[0][1]->eta);
+
+            }
+            
+            valid = true;
+        }
+
+        if (four_track_minimum_rho_mass < rhos[1][0]->m && rhos[1][0]->m < four_track_maximum_rho_mass && four_track_minimum_rho_mass < rhos[1][1]->m && rhos[1][1]->m < four_track_maximum_rho_mass) {
+            
+            Particle* fourtrack_2 = current_event.reconstruct_1_from_2(rhos[1][0], rhos[1][1], 3);
+            four_track_mass->Fill(fourtrack_2->m);
+            fourtrack_2->calculate_eta();
+            rho_four_track_eta->Fill(fourtrack_2->eta);
+
+            if (fourtrack_2->eta < 0.25) {
+
+                rhos[1][0]->calculate_eta();
+                rhos[1][1]->calculate_eta();
+                rho_two_track_eta->Fill(rhos[1][0]->eta);
+                rho_two_track_eta->Fill(rhos[1][1]->eta);
+
+            }
+            
+            valid = true;
+        }
+
+        if (valid) {
+            for (Particle* particle : particles) {
+                rho_track_eta->Fill(particle->eta);
+            }
         }
 
         //cout << endl;
@@ -879,40 +979,6 @@ void four_track_glueball_analysis() {
     TLine dz_distribution_line_3 = TLine(dz_rho_distribution_location-dz_rho_distribution_scale, 0, dz_rho_distribution_location-dz_rho_distribution_scale, 1.05*dz_maximum_rho_distribution->GetMaximum());
     dz_distribution_line_3.SetLineWidth(2);
     dz_distribution_line_3.DrawClone();
-
-    //allowed_greatest_dz = dz_rho_distribution_location + dz_rho_distribution_scale;
-
-/*
-    TString dz_distribution_LanGauss_fit_string = "[0]*TMath::Gaus(x,[1],[2])+"+to_string(dz_distribution_Landau_fit.GetParameter(0))+"*TMath::Landau(x,"+to_string(dz_distribution_Landau_fit.GetParameter(1))+","+to_string(dz_distribution_Landau_fit.GetParameter(2))+")";
-    TF1 dz_distribution_LanGauss_fit("dz_distribution_LanGauss_fit", dz_distribution_LanGauss_fit_string, 0.2, 2);
-    dz_distribution_LanGauss_fit.SetParameters(100, 0.4, 10);
-    dz_maximum_rho_distribution->Fit(&dz_distribution_LanGauss_fit, "","",0.2, 2);
-    dz_distribution_LanGauss_fit.SetLineColor(5);
-    dz_distribution_LanGauss_fit.DrawCopy("Same");
-
-    TString dz_distribution_LanGauss_truefit_string = "[0]*TMath::Gaus(x,[1],[2])+[3]*TMath::Landau(x,[4],[5])";
-    TF1 dz_distribution_LanGauss_truefit("dz_distribution_LanGauss_truefit", dz_distribution_LanGauss_truefit_string, 0.2, 2);
-    dz_distribution_LanGauss_truefit.SetParameters(dz_distribution_LanGauss_fit.GetParameter(0), dz_distribution_LanGauss_fit.GetParameter(1), dz_distribution_LanGauss_fit.GetParameter(2), dz_distribution_Landau_fit.GetParameter(0), dz_distribution_Landau_fit.GetParameter(1), dz_distribution_Landau_fit.GetParameter(2));
-    dz_maximum_rho_distribution->Fit(&dz_distribution_LanGauss_truefit, "","",0.2, 2);
-    dz_distribution_LanGauss_truefit.SetLineColor(4);
-    dz_distribution_LanGauss_truefit.DrawCopy("Same");
-
-    //TF1 dz_distribution_LanGauss_fit("dz_distribution_LanBreWig_fit", "[0]*TMath::BreitWigner(x,[1],[2]) + [6] + [3]*TMath::Landau(x,[4],[5])", 200, 1400);
-
-    TF1 dz_distribution_gaussian_fit("dz_distribution_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", 0.2, 2);
-    dz_distribution_gaussian_fit.SetParameters(dz_distribution_LanGauss_truefit.GetParameter(0), dz_distribution_LanGauss_truefit.GetParameter(1), dz_distribution_LanGauss_truefit.GetParameter(2));
-    dz_maximum_rho_distribution->Fit(&dz_distribution_gaussian_fit, "","",0.2, 2);
-    secondary_gaussian_fit.DrawCopy("Same");
-
-
-    float dz_distribution_peak = 0.4;
-    float dz_distribution_fit_range = 0.15;
-    TF1 dz_distribution_gaussian_fit("dz_distribution_gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", dz_distribution_peak-dz_distribution_fit_range, dz_distribution_peak+dz_distribution_fit_range);
-    dz_distribution_gaussian_fit.SetParameters(1600, dz_distribution_peak, 1);
-    dz_maximum_rho_distribution->Fit(&dz_distribution_gaussian_fit, "","",dz_distribution_peak-dz_distribution_fit_range, dz_distribution_peak+0.04);
-    secondary_gaussian_fit.DrawCopy("Same");
-*/
-    
 
 
     auto raw_projections = new TCanvas("Canvas3","Canvas3");
@@ -1253,7 +1319,26 @@ void four_track_glueball_analysis() {
 
     auto main = new TCanvas("Canvas4","Canvas4");
     rho_masses->Draw("Colz");
- 
+
+    TLine rho_mass_bottom_line = TLine(four_track_minimum_rho_mass, four_track_minimum_rho_mass, four_track_maximum_rho_mass, four_track_minimum_rho_mass);
+    rho_mass_bottom_line.SetLineColor(2);
+    rho_mass_bottom_line.SetLineWidth(2);
+    rho_mass_bottom_line.DrawClone();
+
+    TLine rho_mass_right_line = TLine(four_track_maximum_rho_mass, four_track_minimum_rho_mass, four_track_maximum_rho_mass, four_track_maximum_rho_mass);
+    rho_mass_right_line.SetLineColor(2);
+    rho_mass_right_line.SetLineWidth(2);
+    rho_mass_right_line.DrawClone();
+
+    TLine rho_mass_top_line = TLine(four_track_minimum_rho_mass, four_track_maximum_rho_mass, four_track_maximum_rho_mass, four_track_maximum_rho_mass);
+    rho_mass_top_line.SetLineColor(2);
+    rho_mass_top_line.SetLineWidth(2);
+    rho_mass_top_line.DrawClone();
+
+    TLine rho_mass_left_line = TLine(four_track_minimum_rho_mass, four_track_minimum_rho_mass, four_track_minimum_rho_mass, four_track_maximum_rho_mass);
+    rho_mass_left_line.SetLineColor(2);
+    rho_mass_left_line.SetLineWidth(2);
+    rho_mass_left_line.DrawClone();
 
     auto projections = new TCanvas("Canvas5","Canvas5");
     
@@ -1713,187 +1798,29 @@ void four_track_glueball_analysis() {
     line22.DrawClone();
 
 
+    auto raw_four_track_mass_canvas = new TCanvas("raw_four_track_mass_canvas","raw_four_track_mass_canvas");
+    raw_four_track_mass->Draw();
 
+    auto four_track_mass_canvas = new TCanvas("four_track_mass_canvas","four_track_mass_canvas");
+    four_track_mass->Draw();
 
-    Reader.Restart();
+    auto global_track_eta_canvas = new TCanvas("global_track_eta_canvas","global_track_eta_canvas");
+    global_track_eta->Draw();
 
-    while (Reader.Next()) {
+    auto rho_track_eta_canvas = new TCanvas("rho_track_eta_canvas","rho_track_eta_canvas");
+    rho_track_eta->Draw();
 
-        if (trk_p.GetSize() != 4) {
-            continue;
-        }
+    auto global_two_track_eta_canvas = new TCanvas("global_two_track_eta_canvas","global_two_track_eta_canvas");
+    global_two_track_eta->Draw();
 
-        Particle* particles[4];
+    auto rho_two_track_eta_canvas = new TCanvas("rho_two_track_eta_canvas","rho_two_track_eta_canvas");
+    rho_two_track_eta->Draw();
 
-        for (int i=0;i<4;++i) {
-            Particle* particle = new Particle(1);
-            particle->p = 1000*trk_p[i];
-            particle->p_t = 1000*trk_pt[i];
-            particle->charge = trk_q[i];
-            particle->eta = trk_eta[i];
-            particle->phi = trk_phi[i];
-            particle->m = pion_mass;
-            particle->calculate_3d_momentum();
-            particle->calculate_energy();
-            particles[i] = particle;
+    auto global_four_track_eta_canvas = new TCanvas("global_four_track_eta_canvas","global_four_track_eta_canvas");
+    global_four_track_eta->Draw();
 
-            particle->dxy = trk_dxy[i];
-            particle->dz = trk_dz[i];
-        }
-        
-        /*
-        for (Particle* particle : particles) {
-            //cout << "momentum: " << particle.p_t << ", charge: " << particle.charge << endl;
-            cout << "p_x: " << particle->p_x << ", p_y: " << particle->p_y << ", p_z: " << particle->p_z << ", Dp: " 
-            << particle->p - sqrt(pow(particle->p_x, 2)+pow(particle->p_y, 2)+pow(particle->p_z, 2)) 
-            << ", Dp_t: " << particle->p_t - sqrt(pow(particle->p_x, 2)+pow(particle->p_y, 2)) << ", charge: " << particle->charge << endl;
-        }
-        */
-
-        Event current_event(particles, 4);
-
-        if (monte_carlo) {
-            current_event.ThxR = -(*ThxR);
-            current_event.ThyR = -(*ThyR);
-            current_event.ThxL = (*ThxL);
-            current_event.ThyL = (*ThyL);
-        } else {
-            current_event.ThxR = -(*ThxR);
-            current_event.ThyR = (*ThyR);
-            current_event.ThxL = -(*ThxL);
-            current_event.ThyL = (*ThyL);
-        }
-        
-
-        float total_charge = current_event.calculate_total_charge();
-        if (total_charge != 0) {
-            //cout << "INVALID" << endl << endl;
-            continue;
-        }
-
-        current_event.calculate_momentum_of_diffractive_system();
-        current_event.calculate_proton_momentums();
-
-        Particle* rhos[2][2];
-        current_event.reconstruct_2_from_4(rhos, 2);
-
-        Particle* glueball1 = current_event.reconstruct_1_from_2(rhos[0][0], rhos[0][1], 3);
-        Particle* glueball2 = current_event.reconstruct_1_from_2(rhos[1][0], rhos[1][1], 3);
-
-        raw_origin_mass->Fill(glueball1->m);
-        raw_origin_mass->Fill(glueball2->m);
-
-        raw_origin_m_vs_rho1_m->Fill(glueball1->m, rhos[0][0]->m);
-        raw_origin_m_vs_rho1_m->Fill(glueball2->m, rhos[1][0]->m);
-        
-        if (allowed_px_difference < abs(abs(current_event.PR_p[0]+current_event.PL_p[0]) - abs(current_event.diff_p[0]))) {
-            continue;
-        }
-
-        if (allowed_py_difference < abs(abs(current_event.PR_p[1]+current_event.PL_p[1]) - abs(current_event.diff_p[1]))) {
-            continue;
-        }
-
-        if (current_event.get_greatest_dxy()>allowed_greatest_dxy) {
-            continue;
-        }
-
-        if (current_event.get_greatest_dz()>allowed_greatest_dz) {
-            continue;
-        }
-        
-        /*
-        if (current_event.get_dxy_variance()>allowed_dxy_variance) {
-            continue;
-        }
-
-        if (current_event.get_dz_variance()>allowed_dz_variance) {
-            continue;
-        }
-        */
-
-        float masses[2];
-        for (int i=0; i<2; ++i) {
-            for (int j=0; j<2; ++j) {
-                Particle* rho = rhos[i][j];
-                masses[j] = rho->m;
-                //cout << "m: " << rho->m << endl;
-            }
-            rho_masses->Fill(masses[0], masses[1]);
-        }
-
-
-        if (dynamic_rho_mass - allowed_rho_mass_difference < rhos[0][0]->m && rhos[0][0]->m < dynamic_rho_mass + allowed_rho_mass_difference && dynamic_rho_mass - allowed_rho_mass_difference < rhos[0][1]->m && rhos[0][1]->m < dynamic_rho_mass + allowed_rho_mass_difference) {
-            origin_mass->Fill(glueball1->m);
-            origin_m_vs_rho1_m->Fill(glueball1->m, rhos[0][0]->m);
-        }
-
-        if (dynamic_rho_mass - allowed_rho_mass_difference < rhos[1][0]->m && rhos[1][0]->m < dynamic_rho_mass + allowed_rho_mass_difference && dynamic_rho_mass - allowed_rho_mass_difference < rhos[1][1]->m && rhos[1][1]->m < dynamic_rho_mass + allowed_rho_mass_difference) {
-            origin_mass->Fill(glueball2->m);
-            origin_m_vs_rho1_m->Fill(glueball2->m, rhos[1][0]->m);
-        }
-
-
-        if (dynamic_rho_mass - allowed_rho_mass_difference_supercut < rhos[0][1]->m && rhos[0][1]->m < dynamic_rho_mass + allowed_rho_mass_difference_supercut) {
-            origin_m_vs_rho1_m_supercut->Fill(glueball1->m, rhos[0][0]->m);
-        }
-
-        if (dynamic_rho_mass - allowed_rho_mass_difference_supercut < rhos[1][1]->m && rhos[1][1]->m < dynamic_rho_mass + allowed_rho_mass_difference_supercut) {
-            origin_m_vs_rho1_m_supercut->Fill(glueball2->m, rhos[1][0]->m);
-        }
-
-        
-
-        //cout << endl;
-        //cout << endl;
-
-    } 
-
-
-    auto raw_origin_mass_canvas = new TCanvas("Canvas10","Canvas10");
-    raw_origin_mass->Draw("Colz");
-
-    float peak;
-    float peak_bin;
-
-    peak_bin = raw_origin_mass->GetMaximumBin();
-    peak = raw_origin_mass->GetBinCenter(peak_bin);
-    TF1 raw_origin_mass_fit("raw_origin_mass_fit", "[0]*TMath::Gaus(x,[1],[2])", 500, 3000);
-    raw_origin_mass_fit.SetParameters(2000, peak, 100);
-    //raw_origin_mass->Fit(&raw_origin_mass_fit, "","",peak-60,peak+100);
-
-    auto origin_mass_canvas = new TCanvas("Canvas11","Canvas11");
-    origin_mass->Draw("Colz");
-
-    peak_bin = origin_mass->GetMaximumBin();
-    peak = origin_mass->GetBinCenter(peak_bin);
-    TF1 origin_mass_fit("origin_mass_fit", "[0]*TMath::Gaus(x,[1],[2])", 500, 3000);
-    origin_mass_fit.SetParameters(2000, peak, 100);
-    //origin_mass->Fit(&origin_mass_fit, "","",peak-80,peak+80);
-    
-    auto raw_origin_m_vs_rho1_m_canvas = new TCanvas("Canvas12","Canvas12");
-    raw_origin_m_vs_rho1_m->Draw("Colz");
-
-    auto origin_mass_canvas_canvas = new TCanvas("Canvas13","Canvas13");
-    origin_m_vs_rho1_m->Draw("Colz");
-
-
-    auto origin_mass_canvas_canvas_supercut = new TCanvas("Canvas14","Canvas14");
-    origin_m_vs_rho1_m_supercut->Draw("Colz");
-
-    TLine line1 = TLine(1000, dynamic_rho_mass-allowed_rho_mass_difference_supercut, 3000, dynamic_rho_mass-allowed_rho_mass_difference_supercut);
-    line1.SetLineColor(2);
-    line1.DrawClone();
-
-    TLine line2 = TLine(1000, dynamic_rho_mass+allowed_rho_mass_difference_supercut, 3000, dynamic_rho_mass+allowed_rho_mass_difference_supercut);
-    line2.SetLineColor(2);
-    line2.DrawClone();
-
-    auto origin_projection_supercut_canvas = new TCanvas("Canvas15","Canvas15");
-    
-    auto origin_projection_supercut = origin_m_vs_rho1_m_supercut->ProjectionX("origin_m_vs_rho1_m_projection_supercut", (dynamic_rho_mass-allowed_rho_mass_difference_supercut-200)/6, (dynamic_rho_mass+allowed_rho_mass_difference_supercut-200)/6);
-    origin_projection_supercut->Draw();
-
+    auto rho_four_track_eta_canvas = new TCanvas("rho_four_track_eta_canvas","rho_four_track_eta_canvas");
+    rho_four_track_eta->Draw();
 
     cout << "---RESULTS---" << endl << endl;
 
@@ -1980,61 +1907,5 @@ void four_track_glueball_analysis() {
 
     cout << "empty bins = "+to_string(results["empty_bins"]) << endl;
     cout << "raw empty bins = "+to_string(results["raw_empty_bins"]) << endl;
-
-    //278.599/(200-14-(2*0.65*40.019724)/6)
-
-    /*
-    TMinuit *gMinuit = new TMinuit(3);
-    gMinuit->SetFCN(fcn);
-
-    Double_t arglist[10];
-    Int_t ierflg = 0;
-
-    arglist[0] = 1;
-
-    gMinuit->mnexcm("SET ERR", arglist ,1,ierflg);
-
-    static Double_t vstart[4] = {1927.99, 730, 118.995};
-    static Double_t step[4] = {1, 1, 1};
-    gMinuit->mnparm(0, "a1", vstart[0], step[0], 0,0,ierflg);
-    gMinuit->mnparm(1, "a2", vstart[1], step[1], 0,0,ierflg);
-    gMinuit->mnparm(2, "a3", vstart[2], step[2], 0,0,ierflg);
-
-    arglist[0] = 500;
-    arglist[1] = 1.;
-    gMinuit->mnexcm("MIGRAD", arglist ,2,ierflg);
-
-    Double_t amin,edm,errdef;
-    Int_t nvpar,nparx,icstat;
-    gMinuit->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
-
-    cout << "amin: " << amin << endl;
-    cout << "edm: " << edm << endl;
-    cout << "errdef: " << errdef << endl;
-    cout << "nvpar: " << nvpar << endl;
-    cout << "nparx: " << nparx << endl;
-    cout << "icstat: " << icstat << endl;
-    Double_t val1,err1,val2,err2,val3,err3;
-    gMinuit->GetParameter(0, val1, err1);
-    gMinuit->GetParameter(1, val2, err2);
-    gMinuit->GetParameter(2, val3, err3);
-    cout << "parameter 1 val/err: " << val1 << " / " << err1 << endl;
-    cout << "parameter 2 val/err: " << val2 << " / " << err2 << endl;
-    cout << "parameter 3 val/err: " << val3 << " / " << err3 << endl;
-
-    TF1 gaussian_fit("gaussian_fit", "[0]*TMath::Gaus(x,[1],[2])", 200, 1400);
-    gaussian_fit.SetParameters(val1, val2, val3);
-
-    gaussian_fit.DrawCopy("Same");
-    */   
+ 
 }
-
-/*
-variance cuts:
-724.594421 ± 2.811280
-729.529297 ± 5.155312
-
-
-120.558868 ± 13.010889
-118.874001 ± 23.329580
-*/

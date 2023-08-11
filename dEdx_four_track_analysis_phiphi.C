@@ -1,7 +1,7 @@
 
 class Particle {
     public:
-        //unknown=0, pion=1, kaons=4, rho=2, glueball=3
+        //unknown=0, pion=1, rho=2, glueball=3
         int type;
         float p;
         float p_t;
@@ -99,31 +99,6 @@ class Event {
             origins[1][0] = origin1_c2;
             Particle* origin2_c2 = reconstruct_1_from_2(positives[1], negatives[0], type);
             origins[1][1] = origin2_c2;
-        }
-
-        void reconstruct_2_from_4_opposite_id(Particle* origins[2], int type) {
-            if (particle_count != 4) {
-                throw invalid_argument("invalid number of particles");
-            }
-
-            Particle* positives[2];
-            Particle* negatives[2];
-
-            get_positives_and_negatives(positives, negatives);
-
-            if (positives[0]->type != negatives[0]->type && positives[1]->type != negatives[1]->type) {
-                Particle* origin1 = reconstruct_1_from_2(positives[0], negatives[0], type);
-                Particle* origin2 = reconstruct_1_from_2(positives[1], negatives[1], type);
-                origins[0] = origin1;
-                origins[1] = origin2;
-            } else if (positives[0]->type != negatives[1]->type && positives[1]->type != negatives[0]->type) {
-                Particle* origin1 = reconstruct_1_from_2(positives[0], negatives[1], type);
-                Particle* origin2 = reconstruct_1_from_2(positives[1], negatives[0], type);
-                origins[0] = origin1;
-                origins[1] = origin2;
-            } else {
-                throw invalid_argument("The types don't match");
-            }
         }
 
         void get_positives_and_negatives(Particle* positives[2], Particle* negatives[2]) {
@@ -261,48 +236,133 @@ const float low_k_curve_a = 0.064;
 const float low_k_curve_b = 1.33;
 const float low_k_curve_c = 3;
 
-const float bar_level = 3.5; //3.5
+const float kaon_vertical_bar = 1.2;
+const float kaon_horizontal_bar = 3;
 
-const float two_track_mass_low_limit = 0.84;
-const float two_track_mass_high_limit = 0.94;
+const float relaxed_kaon_vertical_bar = 1.8;
+
+const float pion_vertical_bar = 0.7;
+const float pion_horizontal_bar = 1.5;
+
+const float strict_pion_vertical_bar = 0.5;
+const float strict_pion_horizontal_bar = 3.5;
+
+const float unknown_vertical_bar = 1.5;
+
+const float two_track_mass_low_limit = 1.019461 - 0.08; //0.012
+const float two_track_mass_high_limit = 1.019461 + 0.08; //0.012
 
 bool is_kaon(float p, float dEdx) {
-    if (dEdx < bar_level) {
+    if (dEdx < 0.1) {
         return false;
     }
-    if (dEdx < low_k_curve_a/p + low_k_curve_b) {
-        //cout << "FALSE: low " << low_k_curve_a/p + low_k_curve_b << " p: " << p << ", dEdx: " << dEdx << endl;
+    if (dEdx < kaon_horizontal_bar) {
         return false;
     }
-    if (high_k_curve_a/p + high_k_curve_b < dEdx) {
-        //cout << "FALSE: high " << high_k_curve_a/p + high_k_curve_b << " p: " << p << ", dEdx: " << dEdx << endl;
+    if (kaon_vertical_bar < p) {
         return false;
     }
-    //cout << "TRUE" << endl;
+    if (dEdx < -1*low_k_curve_a/(p*p)*log(low_k_curve_b*p*p) + low_k_curve_c) {
+        return false;
+    }
+    if (-1*high_k_curve_a/(p*p)*log(high_k_curve_b*p*p) + high_k_curve_c < dEdx) {
+        return false;
+    }
+    return true;
+}
+
+bool is_pion(float p, float dEdx) {
+    if (dEdx < 0.1) {
+        return false;
+    }
+    if (dEdx < pion_horizontal_bar) {
+        return false;
+    }
+    if (pion_vertical_bar < p) {
+        return false;
+    }
+    if (-1*low_k_curve_a/(p*p)*log(low_k_curve_b*p*p) + low_k_curve_c < dEdx) {
+        return false;
+    }
+    return true;
+}
+
+bool strict_is_pion(float p, float dEdx) {
+    if (dEdx < 0.1) {
+        return false;
+    }
+    if (dEdx < strict_pion_horizontal_bar) {
+        return false;
+    }
+    if (strict_pion_vertical_bar < p) {
+        return false;
+    }
+    if (-1*low_k_curve_a/(p*p)*log(low_k_curve_b*p*p) + low_k_curve_c < dEdx) {
+        return false;
+    }
     return true;
 }
 
 bool relaxed_is_kaon(float p, float dEdx) {
-    if (low_k_curve_a/p + low_k_curve_b < dEdx) {
-        return true;
-    } else {
+    if (dEdx < 0.1) {
         return false;
     }
-}
-
-bool is_pion(float p, float dEdx) {
-    if (dEdx < bar_level) {
+    if (dEdx < kaon_horizontal_bar) {
         return false;
     }
-    if (low_k_curve_a/p + low_k_curve_b < dEdx) {
-        //cout << "FALSE: low " << low_k_curve_a/p + low_k_curve_b << " p: " << p << ", dEdx: " << dEdx << endl;
+    if (relaxed_kaon_vertical_bar < p) {
         return false;
     }
-    //cout << "TRUE" << endl;
+    if (dEdx < -1*low_k_curve_a/(p*p)*log(low_k_curve_b*p*p) + low_k_curve_c) {
+        return false;
+    }
     return true;
 }
 
-void dEdx_four_track_analysis() {
+bool is_unknown(float p, float dEdx) {
+    if (dEdx < 0.1) {
+        return false;
+    }
+    if (unknown_vertical_bar < p) {
+        return true;
+    }
+    if (kaon_horizontal_bar < dEdx) {
+        return false;
+    }
+    if (p < pion_vertical_bar) {
+        return false;
+    }
+    if (-1*low_k_curve_a/(p*p)*log(low_k_curve_b*p*p) + low_k_curve_c < dEdx) {
+        return false;
+    }
+    return true;
+}
+
+bool is_unknown_kaon(float p, float dEdx) {
+    bool clear_kaon = true;
+    if (dEdx < 0.1) {
+        return false;
+    }
+    if (dEdx < kaon_horizontal_bar) {
+        clear_kaon = false;
+    }
+    if (dEdx < -1*low_k_curve_a/(p*p)*log(low_k_curve_b*p*p) + low_k_curve_c) {
+        clear_kaon = false;
+    }
+    if (-1*high_k_curve_a/(p*p)*log(high_k_curve_b*p*p) + high_k_curve_c < dEdx) {
+        clear_kaon = false;
+    }
+    if (clear_kaon) {
+        return true;
+    }
+    return is_unknown(p, dEdx);
+}
+
+bool is_unknown_pion(float p, float dEdx) {
+    return (is_pion(p, dEdx) || is_unknown(p, dEdx));
+}
+
+void dEdx_four_track_analysis_phiphi() {
 
     const float pion_mass = 0.13957039;
     const float kaon_mass = 0.493677;
@@ -334,7 +394,7 @@ void dEdx_four_track_analysis() {
     const float max_p = 0.5;
 
     auto rho_masses = new TH2F("rho_masses", ";m1 (GeV);m2 (GeV)",200,0.2,1.4,200,0.2,1.4);
-    auto two_track_mass_1 = new TH2F("two_track_mass_1", ";m1 (GeV);m2 (GeV)",100,0.6,1.6,100,0.6,1.6);
+    auto two_track_mass_1 = new TH2F("two_track_mass_1", ";m1 (GeV);m2 (GeV)",100,0.9,1.4,100,0.9,1.4);
     auto four_track_mass_1 = new TH1F("four_track_mass_1", ";m (GeV)",60,1.5,3.5);
     auto four_track_mass_2 = new TH1F("four_track_mass_2", ";m (GeV)",60,1.5,3.5);
 
@@ -423,10 +483,10 @@ void dEdx_four_track_analysis() {
             for (Particle* particle : particles){
                 //cout << "hit " << particle->p << ", " << particle->dEdx << endl;
                 dEdx_hist->Fill(particle->p, particle->dEdx);
-                if (is_kaon(particle->p, particle->dEdx)) {
+                if (is_unknown_kaon(particle->p, particle->dEdx)) {
                     kaon_dEdx_hist->Fill(particle->p, particle->dEdx);
                 }
-                if (is_pion(particle->p, particle->dEdx)) {
+                if (is_unknown_pion(particle->p, particle->dEdx)) {
                     pion_dEdx_hist->Fill(particle->p, particle->dEdx);
                 }
             }
@@ -437,105 +497,72 @@ void dEdx_four_track_analysis() {
 
             bool valid = false;
             
-            if ((is_kaon(positives[0]->p, positives[0]->dEdx) && is_pion(positives[1]->p, positives[1]->dEdx)) || (is_pion(positives[0]->p, positives[0]->dEdx) && is_kaon(positives[1]->p, positives[1]->dEdx))) {
-                if ((is_kaon(negatives[0]->p, negatives[0]->dEdx) && !is_kaon(negatives[1]->p, negatives[1]->dEdx)) || (is_kaon(negatives[1]->p, negatives[1]->dEdx) && !is_kaon(negatives[0]->p, negatives[0]->dEdx))) {
+            if (is_pion(positives[0]->p, positives[0]->dEdx) && is_pion(positives[1]->p, positives[1]->dEdx)) {
+                if (is_unknown_pion(negatives[0]->p, negatives[0]->dEdx) && is_unknown_kaon(negatives[1]->p, negatives[1]->dEdx)) {
+                    valid = true;
+                }
+            }
+            if (is_pion(negatives[0]->p, negatives[0]->dEdx) && is_pion(negatives[1]->p, negatives[1]->dEdx)) {
+                if (is_unknown_pion(positives[0]->p, positives[0]->dEdx) && is_unknown_kaon(positives[1]->p, positives[1]->dEdx)) {
+                    valid = true;
+                }
+            }
+            
+            
+            /*
+            if ((is_kaon(positives[0]->p, positives[0]->dEdx) && is_kaon(positives[1]->p, positives[1]->dEdx))) {
+                if (relaxed_is_kaon(negatives[0]->p, negatives[0]->dEdx) && relaxed_is_kaon(negatives[1]->p, negatives[1]->dEdx)) {
                     valid = true;
                 }
             }
 
-            if ((is_kaon(negatives[0]->p, negatives[0]->dEdx) && is_pion(negatives[1]->p, negatives[1]->dEdx)) || (is_pion(negatives[0]->p, negatives[0]->dEdx) && is_kaon(negatives[1]->p, negatives[1]->dEdx))) {
-                if ((is_kaon(positives[0]->p, positives[0]->dEdx) && !is_kaon(positives[1]->p, positives[1]->dEdx)) || (is_kaon(positives[1]->p, positives[1]->dEdx) && !is_kaon(positives[0]->p, positives[0]->dEdx))) {
+            if ((is_kaon(negatives[0]->p, negatives[0]->dEdx) && is_kaon(negatives[1]->p, negatives[1]->dEdx))) {
+                if (relaxed_is_kaon(positives[0]->p, positives[0]->dEdx) && relaxed_is_kaon(positives[1]->p, positives[1]->dEdx)) {
                     valid = true;
                 }
             }
-
+            */
+            valid = true;
             if (valid) {
-                int pions = 0;
-                int kaons = 0;
+
                 for (int i=0;i<4;++i) {
-                    if (is_kaon(particles[i]->p, particles[i]->dEdx)) {
-                        particles[i]->m = kaon_mass;
-                        particles[i]->type = 4;
-                        ++kaons;
-                    } else {
-                        particles[i]->m = pion_mass;
-                        particles[i]->type = 1;
-                        ++pions;
-                    }
-                    particles[i]->calculate_energy();
-                }
-                if (pions != 2 || kaons != 2) {
-                    cout << "pions: " << pions << endl;
-                    cout << "kaons: " << kaons << endl;
-                    throw invalid_argument("Particle id went wrong!");
+                particles[i]->m = kaon_mass;
+                particles[i]->calculate_energy();
                 }
 
-                Particle* big_kaons[2];
-                current_event.reconstruct_2_from_4_opposite_id(big_kaons, 0);
+                Particle* big_kaons[2][2];
+                current_event.reconstruct_2_from_4(big_kaons, 0);
 
                 float masses[2];
-                masses[0] = big_kaons[0]->m;
-                masses[1] = big_kaons[1]->m;
+                for (int i=0; i<2; ++i) {
+                    for (int j=0; j<2; ++j) {
+                        Particle* big_kaon = big_kaons[i][j];
+                        masses[j] = big_kaon->m;
+                    }
+                    two_track_mass_1->Fill(masses[0], masses[1]);
 
-                two_track_mass_1->Fill(masses[0], masses[1]);
+                    if (two_track_mass_low_limit < masses[0] && masses[0] < two_track_mass_high_limit && two_track_mass_low_limit < masses[1] && masses[1] < two_track_mass_high_limit) {
+                        Particle* four_track_origin = current_event.reconstruct_1_from_2(big_kaons[i][0], big_kaons[i][1], 0);
+                        four_track_mass_2->Fill(four_track_origin->m);
+                    }
 
-                if (two_track_mass_low_limit < masses[0] && masses[0] < two_track_mass_high_limit && two_track_mass_low_limit < masses[1] && masses[1] < two_track_mass_high_limit) {
-                    Particle* four_track_origin = current_event.reconstruct_1_from_2(big_kaons[0], big_kaons[1], 0);
-                    four_track_mass_2->Fill(four_track_origin->m);
                 }
 
-                Particle* four_track_origin = current_event.reconstruct_1_from_2(big_kaons[0], big_kaons[1], 0);
+                Particle* four_track_origin = current_event.reconstruct_1_from_2(big_kaons[0][0], big_kaons[0][1], 0);
+                four_track_mass_1->Fill(four_track_origin->m);
+
+                four_track_origin = current_event.reconstruct_1_from_2(big_kaons[1][0], big_kaons[1][1], 0);
                 four_track_mass_1->Fill(four_track_origin->m);
             }
 
-            /*
-            if ((is_kaon(positives[0]->p, positives[0]->dEdx) && is_pion(positives[1]->p, positives[1]->dEdx)) || (is_pion(positives[0]->p, positives[0]->dEdx) && is_kaon(positives[1]->p, positives[1]->dEdx))) {
+            if (is_kaon(positives[0]->p, positives[0]->dEdx) && is_kaon(positives[1]->p, positives[1]->dEdx)) {
                 second_dEdx_hist->Fill(negatives[0]->p, negatives[0]->dEdx);
                 second_dEdx_hist->Fill(negatives[1]->p, negatives[1]->dEdx);
             }
 
-            if ((is_kaon(negatives[0]->p, negatives[0]->dEdx) && is_pion(negatives[1]->p, negatives[1]->dEdx)) || (is_pion(negatives[0]->p, negatives[0]->dEdx) && is_kaon(negatives[1]->p, negatives[1]->dEdx))) {
+            if (is_kaon(negatives[0]->p, negatives[0]->dEdx) && is_kaon(negatives[1]->p, negatives[1]->dEdx)) {
                 second_dEdx_hist->Fill(positives[0]->p, positives[0]->dEdx);
                 second_dEdx_hist->Fill(positives[1]->p, positives[1]->dEdx);
-            }
-            */
-            /*
-            if ((is_kaon(positives[0]->p, positives[0]->dEdx) && is_pion(positives[1]->p, positives[1]->dEdx)) || (is_pion(positives[0]->p, positives[0]->dEdx) && is_kaon(positives[1]->p, positives[1]->dEdx))) {
-                if (is_kaon(negatives[0]->p, negatives[0]->dEdx)) {
-                    second_dEdx_hist->Fill(negatives[1]->p, negatives[1]->dEdx);
-                }
-                if (is_kaon(negatives[1]->p, negatives[1]->dEdx)) {
-                    second_dEdx_hist->Fill(negatives[0]->p, negatives[0]->dEdx);
-                }
-                
-            }
-
-            if ((is_kaon(negatives[0]->p, negatives[0]->dEdx) && is_pion(negatives[1]->p, negatives[1]->dEdx)) || (is_pion(negatives[0]->p, negatives[0]->dEdx) && is_kaon(negatives[1]->p, negatives[1]->dEdx))) {
-                if (is_kaon(positives[0]->p, positives[0]->dEdx)) {
-                    second_dEdx_hist->Fill(positives[1]->p, positives[1]->dEdx);
-                }
-                if (is_kaon(positives[1]->p, positives[1]->dEdx)) {
-                    second_dEdx_hist->Fill(positives[0]->p, positives[0]->dEdx);
-                }
-            }
-            */
-           if ((is_kaon(positives[0]->p, positives[0]->dEdx) && is_pion(positives[1]->p, positives[1]->dEdx)) || (is_pion(positives[0]->p, positives[0]->dEdx) && is_kaon(positives[1]->p, positives[1]->dEdx))) {
-                if (is_kaon(negatives[0]->p, negatives[0]->dEdx)) {
-                    second_dEdx_hist->Fill(negatives[1]->p, negatives[1]->dEdx);
-                }
-                if (is_kaon(negatives[1]->p, negatives[1]->dEdx)) {
-                    second_dEdx_hist->Fill(negatives[0]->p, negatives[0]->dEdx);
-                }
-                
-            }
-
-            if ((is_kaon(negatives[0]->p, negatives[0]->dEdx) && is_pion(negatives[1]->p, negatives[1]->dEdx)) || (is_pion(negatives[0]->p, negatives[0]->dEdx) && is_kaon(negatives[1]->p, negatives[1]->dEdx))) {
-                if (is_kaon(positives[0]->p, positives[0]->dEdx)) {
-                    second_dEdx_hist->Fill(positives[1]->p, positives[1]->dEdx);
-                }
-                if (is_kaon(positives[1]->p, positives[1]->dEdx)) {
-                    second_dEdx_hist->Fill(positives[0]->p, positives[0]->dEdx);
-                }
             }
         }
     }
@@ -548,18 +575,22 @@ void dEdx_four_track_analysis() {
 
     TLine big_K_line_1 = TLine(two_track_mass_low_limit, two_track_mass_low_limit, two_track_mass_high_limit, two_track_mass_low_limit);
     big_K_line_1.SetLineColor(kRed);
+    big_K_line_1.SetLineWidth(2);
     big_K_line_1.DrawClone();
 
     TLine big_K_line_2 = TLine(two_track_mass_high_limit, two_track_mass_low_limit, two_track_mass_high_limit, two_track_mass_high_limit);
     big_K_line_2.SetLineColor(kRed);
+    big_K_line_2.SetLineWidth(2);
     big_K_line_2.DrawClone();
     
     TLine big_K_line_3 = TLine(two_track_mass_low_limit, two_track_mass_high_limit, two_track_mass_high_limit, two_track_mass_high_limit);
     big_K_line_3.SetLineColor(kRed);
+    big_K_line_3.SetLineWidth(2);
     big_K_line_3.DrawClone();
     
     TLine big_K_line_4 = TLine(two_track_mass_low_limit, two_track_mass_low_limit, two_track_mass_low_limit, two_track_mass_high_limit);
     big_K_line_4.SetLineColor(kRed);
+    big_K_line_4.SetLineWidth(2);
     big_K_line_4.DrawClone();
 
 
@@ -570,9 +601,25 @@ void dEdx_four_track_analysis() {
     four_track_mass_2->Draw();
 
     
-    auto bad_base_canvas = new TCanvas("bad_base_canvas","bad_base_canvas");
+
+    auto base_canvas = new TCanvas("base_canvas","base_canvas");
+    gPad->SetLogz();
 
     dEdx_hist->Draw("Colz");
+
+    /*
+    TLine up1 = TLine(min_p, max_dEdx, max_p, max_dEdx);
+    up1.DrawClone();
+
+    TLine down1 = TLine(min_p, min_dEdx, max_p, min_dEdx);
+    down1.DrawClone();
+
+    TLine left1 = TLine(min_p, min_dEdx, min_p, max_dEdx);
+    left1.DrawClone();
+
+    TLine right1 = TLine(max_p, min_dEdx, max_p, max_dEdx);
+    right1.DrawClone();
+    */
 
     TF1 high_k_curve1("high_k_curve1", "-[0]/(x*x)*log([1]*x*x)+[2]", 0, 1.5);
     high_k_curve1.SetParameters(high_k_curve_a, high_k_curve_b, high_k_curve_c);
@@ -582,11 +629,29 @@ void dEdx_four_track_analysis() {
     low_k_curve1.SetParameters(low_k_curve_a, low_k_curve_b, low_k_curve_c);
     low_k_curve1.DrawCopy("Same");
 
-
-    auto base_canvas = new TCanvas("base_canvas","base_canvas");
+    
+    auto K_dEdx_canvas = new TCanvas("K_dEdx_canvas","K_dEdx_canvas");
     gPad->SetLogz();
 
-    dEdx_hist->Draw("Colz");
+    kaon_dEdx_hist->Draw("Colz");
+
+    high_k_curve1.DrawCopy("Same");
+    low_k_curve1.DrawCopy("Same");
+
+    auto pion_dEdx_canvas = new TCanvas("pion_dEdx_canvas","pion_dEdx_canvas");
+    gPad->SetLogz();
+
+    pion_dEdx_hist->Draw("Colz");
+
+    high_k_curve1.DrawCopy("Same");
+    low_k_curve1.DrawCopy("Same");
+
+
+    auto second_dEdx_canvas = new TCanvas("second_dEdx_canvas","second_dEdx_canvas");
+    gPad->SetLogz();
+
+    second_dEdx_hist->Draw("Colz");
+
     high_k_curve1.DrawCopy("Same");
     low_k_curve1.DrawCopy("Same");
 
