@@ -249,8 +249,8 @@ const float strict_pion_horizontal_bar = 3.5;
 
 const float unknown_vertical_bar = 1.5;
 
-const float two_track_mass_low_limit = 1.019461 - 0.08; //0.012
-const float two_track_mass_high_limit = 1.019461 + 0.08; //0.012
+const float two_track_mass_low_limit = 1.019461 - 0.012; //0.012, 0.08
+const float two_track_mass_high_limit = 1.019461 + 0.012; //0.012, 0.08
 
 bool is_kaon(float p, float dEdx) {
     if (dEdx < 0.1) {
@@ -395,6 +395,7 @@ void dEdx_four_track_analysis_phiphi() {
 
     auto rho_masses = new TH2F("rho_masses", ";m1 (GeV);m2 (GeV)",200,0.2,1.4,200,0.2,1.4);
     auto two_track_mass_1 = new TH2F("two_track_mass_1", ";m1 (GeV);m2 (GeV)",100,0.9,1.4,100,0.9,1.4);
+    auto two_track_mass_2 = new TH2F("two_track_mass_2", ";m1 (GeV);m2 (GeV)",100,0.9,1.4,100,0.9,1.4);
     auto four_track_mass_1 = new TH1F("four_track_mass_1", ";m (GeV)",60,1.5,3.5);
     auto four_track_mass_2 = new TH1F("four_track_mass_2", ";m (GeV)",60,1.5,3.5);
 
@@ -483,10 +484,10 @@ void dEdx_four_track_analysis_phiphi() {
             for (Particle* particle : particles){
                 //cout << "hit " << particle->p << ", " << particle->dEdx << endl;
                 dEdx_hist->Fill(particle->p, particle->dEdx);
-                if (is_unknown_kaon(particle->p, particle->dEdx)) {
+                if (is_kaon(particle->p, particle->dEdx)) {
                     kaon_dEdx_hist->Fill(particle->p, particle->dEdx);
                 }
-                if (is_unknown_pion(particle->p, particle->dEdx)) {
+                if (is_unknown_kaon(particle->p, particle->dEdx)) {
                     pion_dEdx_hist->Fill(particle->p, particle->dEdx);
                 }
             }
@@ -496,20 +497,23 @@ void dEdx_four_track_analysis_phiphi() {
             current_event.get_positives_and_negatives(positives, negatives);
 
             bool valid = false;
-            
-            if (is_pion(positives[0]->p, positives[0]->dEdx) && is_pion(positives[1]->p, positives[1]->dEdx)) {
-                if (is_unknown_pion(negatives[0]->p, negatives[0]->dEdx) && is_unknown_kaon(negatives[1]->p, negatives[1]->dEdx)) {
-                    valid = true;
-                }
-            }
-            if (is_pion(negatives[0]->p, negatives[0]->dEdx) && is_pion(negatives[1]->p, negatives[1]->dEdx)) {
-                if (is_unknown_pion(positives[0]->p, positives[0]->dEdx) && is_unknown_kaon(positives[1]->p, positives[1]->dEdx)) {
-                    valid = true;
-                }
-            }
-            
-            
+
             /*
+            int not_kaons = 0;
+            int kaons = 0;
+            for (int i=0;i<4;++i) {
+                if (is_kaon(particles[i]->p, particles[i]->dEdx)) {
+                    ++kaons;
+                } else if (!(is_unknown_kaon(particles[i]->p, particles[i]->dEdx))) {
+                    ++not_kaons;
+                }
+            }
+            if (kaons >= 3 && not_kaons == 0) {
+                valid = true;
+            }
+            */
+            
+            
             if ((is_kaon(positives[0]->p, positives[0]->dEdx) && is_kaon(positives[1]->p, positives[1]->dEdx))) {
                 if (relaxed_is_kaon(negatives[0]->p, negatives[0]->dEdx) && relaxed_is_kaon(negatives[1]->p, negatives[1]->dEdx)) {
                     valid = true;
@@ -521,8 +525,8 @@ void dEdx_four_track_analysis_phiphi() {
                     valid = true;
                 }
             }
-            */
-            valid = true;
+            
+            
             if (valid) {
 
                 for (int i=0;i<4;++i) {
@@ -544,6 +548,7 @@ void dEdx_four_track_analysis_phiphi() {
                     if (two_track_mass_low_limit < masses[0] && masses[0] < two_track_mass_high_limit && two_track_mass_low_limit < masses[1] && masses[1] < two_track_mass_high_limit) {
                         Particle* four_track_origin = current_event.reconstruct_1_from_2(big_kaons[i][0], big_kaons[i][1], 0);
                         four_track_mass_2->Fill(four_track_origin->m);
+                        two_track_mass_2->Fill(masses[0], masses[1]);
                     }
 
                 }
@@ -575,24 +580,26 @@ void dEdx_four_track_analysis_phiphi() {
 
     TLine big_K_line_1 = TLine(two_track_mass_low_limit, two_track_mass_low_limit, two_track_mass_high_limit, two_track_mass_low_limit);
     big_K_line_1.SetLineColor(kRed);
-    big_K_line_1.SetLineWidth(2);
+    big_K_line_1.SetLineWidth(4);
     big_K_line_1.DrawClone();
 
     TLine big_K_line_2 = TLine(two_track_mass_high_limit, two_track_mass_low_limit, two_track_mass_high_limit, two_track_mass_high_limit);
     big_K_line_2.SetLineColor(kRed);
-    big_K_line_2.SetLineWidth(2);
+    big_K_line_2.SetLineWidth(4);
     big_K_line_2.DrawClone();
     
     TLine big_K_line_3 = TLine(two_track_mass_low_limit, two_track_mass_high_limit, two_track_mass_high_limit, two_track_mass_high_limit);
     big_K_line_3.SetLineColor(kRed);
-    big_K_line_3.SetLineWidth(2);
+    big_K_line_3.SetLineWidth(4);
     big_K_line_3.DrawClone();
     
     TLine big_K_line_4 = TLine(two_track_mass_low_limit, two_track_mass_low_limit, two_track_mass_low_limit, two_track_mass_high_limit);
     big_K_line_4.SetLineColor(kRed);
-    big_K_line_4.SetLineWidth(2);
+    big_K_line_4.SetLineWidth(4);
     big_K_line_4.DrawClone();
 
+    auto two_track_mass_2_canvas = new TCanvas("two_track_mass_2_canvas","two_track_mass_2_canvas");
+    two_track_mass_2->Draw("Colz");
 
     auto four_track_mass_1_canvas = new TCanvas("four_track_mass_1_canvas","four_track_mass_1_canvas");
     four_track_mass_1->Draw();

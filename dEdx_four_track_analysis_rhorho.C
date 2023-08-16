@@ -489,12 +489,12 @@ void dEdx_four_track_analysis_rhorho() {
             bool valid = false;
             
 
-            if (strict_is_pion(positives[0]->p, positives[0]->dEdx) && strict_is_pion(positives[1]->p, positives[1]->dEdx)) {
+            if (is_pion(positives[0]->p, positives[0]->dEdx) && is_pion(positives[1]->p, positives[1]->dEdx)) {
                 if (is_unknown_pion(negatives[0]->p, negatives[0]->dEdx) && is_unknown_pion(negatives[1]->p, negatives[1]->dEdx)) {
                     valid = true;
                 }
             }
-            if (strict_is_pion(negatives[0]->p, negatives[0]->dEdx) && strict_is_pion(negatives[1]->p, negatives[1]->dEdx)) {
+            if (is_pion(negatives[0]->p, negatives[0]->dEdx) && is_pion(negatives[1]->p, negatives[1]->dEdx)) {
                 if (is_unknown_pion(positives[0]->p, positives[0]->dEdx) && is_unknown_pion(positives[1]->p, positives[1]->dEdx)) {
                     valid = true;
                 }
@@ -552,18 +552,22 @@ void dEdx_four_track_analysis_rhorho() {
 
     TLine big_K_line_1 = TLine(two_track_mass_low_limit, two_track_mass_low_limit, two_track_mass_high_limit, two_track_mass_low_limit);
     big_K_line_1.SetLineColor(kRed);
+    big_K_line_1.SetLineWidth(3);
     big_K_line_1.DrawClone();
 
     TLine big_K_line_2 = TLine(two_track_mass_high_limit, two_track_mass_low_limit, two_track_mass_high_limit, two_track_mass_high_limit);
     big_K_line_2.SetLineColor(kRed);
+    big_K_line_2.SetLineWidth(3);
     big_K_line_2.DrawClone();
     
     TLine big_K_line_3 = TLine(two_track_mass_low_limit, two_track_mass_high_limit, two_track_mass_high_limit, two_track_mass_high_limit);
     big_K_line_3.SetLineColor(kRed);
+    big_K_line_3.SetLineWidth(3);
     big_K_line_3.DrawClone();
     
     TLine big_K_line_4 = TLine(two_track_mass_low_limit, two_track_mass_low_limit, two_track_mass_low_limit, two_track_mass_high_limit);
     big_K_line_4.SetLineColor(kRed);
+    big_K_line_4.SetLineWidth(3);
     big_K_line_4.DrawClone();
 
 

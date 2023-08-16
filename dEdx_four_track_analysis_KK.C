@@ -819,18 +819,22 @@ void dEdx_four_track_analysis_KK() {
 
     TLine big_K_line_1 = TLine(two_track_mass_low_limit, two_track_mass_low_limit, two_track_mass_high_limit, two_track_mass_low_limit);
     big_K_line_1.SetLineColor(kRed);
+    big_K_line_1.SetLineWidth(4);
     big_K_line_1.DrawClone();
 
     TLine big_K_line_2 = TLine(two_track_mass_high_limit, two_track_mass_low_limit, two_track_mass_high_limit, two_track_mass_high_limit);
     big_K_line_2.SetLineColor(kRed);
+    big_K_line_2.SetLineWidth(4);
     big_K_line_2.DrawClone();
     
     TLine big_K_line_3 = TLine(two_track_mass_low_limit, two_track_mass_high_limit, two_track_mass_high_limit, two_track_mass_high_limit);
     big_K_line_3.SetLineColor(kRed);
+    big_K_line_3.SetLineWidth(4);
     big_K_line_3.DrawClone();
     
     TLine big_K_line_4 = TLine(two_track_mass_low_limit, two_track_mass_low_limit, two_track_mass_low_limit, two_track_mass_high_limit);
     big_K_line_4.SetLineColor(kRed);
+    big_K_line_4.SetLineWidth(4);
     big_K_line_4.DrawClone();
 
 
