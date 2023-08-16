@@ -115,11 +115,27 @@ string set_length(int value, int length) {
 
 void summary_analysis() {
 
-    const string filenames[] = {"./ntuples/summary_00.root"};//"./ntuples/summary_01.root"
+    const string filenames[] = {
+        "./ntuples/summary_00.root",
+        "./ntuples/summary_01.root",
+        "./ntuples/summary_02.root",
+        "./ntuples/summary_03.root",
+        "./ntuples/summary_04.root",
+        "./ntuples/summary_05.root",
+        "./ntuples/summary_06.root",
+        "./ntuples/summary_07.root",
+        "./ntuples/summary_08.root",
+        "./ntuples/summary_09.root",
+        "./ntuples/summary_10.root",
+        "./ntuples/summary_11.root",
+        "./ntuples/summary_12.root",
+        "./ntuples/summary_13.root",
+        "./ntuples/summary_14.root",
+    };
 
     //auto dEdx = new TH2F("dEdx", ";p;dEdx",200,0,2.5,200,0,120);
     //auto path_vs_dE = new TH2F("path_vs_dE", ";path length;delta E",200,0,0.01,200,0,0.5);
-    auto momentum_distribution = new TH1F("momentum_distribution", ";momentum;detections",200,0,5);
+    auto path_length_vs_dE = new TH2F("path_length_vs_dE", ";path length;energy deposit",200,0.02,0.1,200,0,0.6);
     
     //map<int, int> detectors;
 
@@ -132,19 +148,19 @@ void summary_analysis() {
         TTree* tree = (TTree*)file->Get("mytree");
         TTreeReader Reader(tree);
 
-        //gStyle->SetOptStat(0);
-        //gStyle->SetPalette(kCividis);
+        gStyle->SetOptStat(0);
+        gStyle->SetPalette(kCividis);
 
 
-        TTreeReaderValue<UInt_t> tree_detector_id(Reader, "tree_detector_id");
-        TTreeReaderValue<Int_t> tree_chip_id(Reader, "tree_chip_id");
+        //TTreeReaderValue<UInt_t> tree_detector_id(Reader, "tree_detector_id");
+        //TTreeReaderValue<Int_t> tree_chip_id(Reader, "tree_chip_id");
         TTreeReaderValue<Float_t> tree_momentum(Reader, "tree_momentum");
-        TTreeReaderValue<Float_t> tree_pt(Reader, "tree_pt");
+        //TTreeReaderValue<Float_t> tree_pt(Reader, "tree_pt");
         TTreeReaderValue<Float_t> tree_path_length(Reader, "tree_path_length");
         TTreeReaderValue<Float_t> tree_deltaE(Reader, "tree_deltaE");
-        TTreeReaderValue<Float_t> tree_eta(Reader, "tree_eta");
-        TTreeReaderValue<Bool_t> tree_kaon(Reader, "tree_kaon");
-        TTreeReaderValue<Bool_t> tree_clean_RP_conf(Reader, "tree_clean_RP_conf");
+        //TTreeReaderValue<Float_t> tree_eta(Reader, "tree_eta");
+        //TTreeReaderValue<Bool_t> tree_kaon(Reader, "tree_kaon");
+        //TTreeReaderValue<Bool_t> tree_clean_RP_conf(Reader, "tree_clean_RP_conf");
 
         float previous_tree_pt = 0;
 
@@ -152,7 +168,7 @@ void summary_analysis() {
 
 
         while (Reader.Next()) {
-            if (*tree_pt != previous_tree_pt && previous_tree_pt != 0) {
+            /*if (*tree_pt != previous_tree_pt && previous_tree_pt != 0) {
 
                 track->calculate_all();
                 //dEdx->Fill(track->average_p, track->dEdx);
@@ -172,10 +188,11 @@ void summary_analysis() {
             detection->eta = *tree_eta;
             detection->kaon = *tree_kaon;
             detection->clean_RP_conf = *tree_clean_RP_conf;
-
-            momentum_distribution->Fill(detection->pt);
-
-            track->detections.push_back(detection);
+            */
+            if (*tree_momentum < 0.25 - 0.01 || 0.25 + 0.01 < *tree_momentum) {
+                continue;
+            }
+            path_length_vs_dE->Fill(*tree_path_length, *tree_deltaE);
 
         }
     }
@@ -183,8 +200,9 @@ void summary_analysis() {
 
 
     auto base_canvas = new TCanvas("base_canvas","base_canvas");
+    gPad->SetLogz();
 
-    momentum_distribution->Draw("Colz");
+    path_length_vs_dE->Draw("Colz");
 
 
 }
