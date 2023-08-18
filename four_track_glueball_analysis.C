@@ -13,6 +13,140 @@ string get_par(TF1 fit, int par) {
     return to_string(fit.GetParameter(par));
 }
 
+const float high_k_curve_a = 0.336;
+const float high_k_curve_b = 0.14;
+const float high_k_curve_c = 3.04;
+
+const float low_k_curve_a = 0.064;
+const float low_k_curve_b = 1.33;
+const float low_k_curve_c = 3;
+
+const float kaon_vertical_bar = 1.2;
+const float kaon_horizontal_bar = 3;
+
+const float relaxed_kaon_vertical_bar = 1.8;
+
+const float pion_vertical_bar = 0.7;
+const float pion_horizontal_bar = 1.5;
+
+const float strict_pion_vertical_bar = 0.5;
+const float strict_pion_horizontal_bar = 3.5;
+
+const float unknown_vertical_bar = 1.5;
+
+const float two_track_mass_low_limit = 0.892-0.050;
+const float two_track_mass_high_limit = 0.892+0.050;
+
+bool is_kaon(float p, float dEdx) {
+    if (dEdx < 0.1) {
+        return false;
+    }
+    if (dEdx < kaon_horizontal_bar) {
+        return false;
+    }
+    if (kaon_vertical_bar < p) {
+        return false;
+    }
+    if (dEdx < -1*low_k_curve_a/(p*p)*log(low_k_curve_b*p*p) + low_k_curve_c) {
+        return false;
+    }
+    if (-1*high_k_curve_a/(p*p)*log(high_k_curve_b*p*p) + high_k_curve_c < dEdx) {
+        return false;
+    }
+    return true;
+}
+
+bool is_pion(float p, float dEdx) {
+    if (dEdx < 0.1) {
+        return false;
+    }
+    if (dEdx < pion_horizontal_bar) {
+        return false;
+    }
+    if (pion_vertical_bar < p) {
+        return false;
+    }
+    if (-1*low_k_curve_a/(p*p)*log(low_k_curve_b*p*p) + low_k_curve_c < dEdx) {
+        return false;
+    }
+    return true;
+}
+
+bool strict_is_pion(float p, float dEdx) {
+    if (dEdx < 0.1) {
+        return false;
+    }
+    if (dEdx < strict_pion_horizontal_bar) {
+        return false;
+    }
+    if (strict_pion_vertical_bar < p) {
+        return false;
+    }
+    if (-1*low_k_curve_a/(p*p)*log(low_k_curve_b*p*p) + low_k_curve_c < dEdx) {
+        return false;
+    }
+    return true;
+}
+
+bool relaxed_is_kaon(float p, float dEdx) {
+    if (dEdx < 0.1) {
+        return false;
+    }
+    if (dEdx < kaon_horizontal_bar) {
+        return false;
+    }
+    if (relaxed_kaon_vertical_bar < p) {
+        return false;
+    }
+    if (dEdx < -1*low_k_curve_a/(p*p)*log(low_k_curve_b*p*p) + low_k_curve_c) {
+        return false;
+    }
+    return true;
+}
+
+bool is_unknown(float p, float dEdx) {
+    if (dEdx < 0.1) {
+        return false;
+    }
+    if (unknown_vertical_bar < p) {
+        return true;
+    }
+    if (kaon_horizontal_bar < dEdx) {
+        return false;
+    }
+    if (p < pion_vertical_bar) {
+        return false;
+    }
+    if (-1*low_k_curve_a/(p*p)*log(low_k_curve_b*p*p) + low_k_curve_c < dEdx) {
+        return false;
+    }
+    return true;
+}
+
+bool is_unknown_kaon(float p, float dEdx) {
+    bool clear_kaon = true;
+    if (dEdx < 0.1) {
+        return false;
+    }
+    if (dEdx < kaon_horizontal_bar) {
+        clear_kaon = false;
+    }
+    if (dEdx < -1*low_k_curve_a/(p*p)*log(low_k_curve_b*p*p) + low_k_curve_c) {
+        clear_kaon = false;
+    }
+    if (-1*high_k_curve_a/(p*p)*log(high_k_curve_b*p*p) + high_k_curve_c < dEdx) {
+        clear_kaon = false;
+    }
+    if (clear_kaon) {
+        return true;
+    }
+    return is_unknown(p, dEdx);
+}
+
+bool is_unknown_pion(float p, float dEdx) {
+    return (is_pion(p, dEdx) || is_unknown(p, dEdx));
+}
+
 class Particle {
     public:
         //unknown=0, pion=1, rho=2, glueball=3
@@ -30,6 +164,8 @@ class Particle {
 
         float dxy;
         float dz;
+
+        float dEdx;
 
         Particle(int type_in) {
             type = type_in;   
@@ -57,7 +193,11 @@ class Particle {
         }
 
         void calculate_eta() {
-            eta = TMath::ATan(p_z/p);
+            eta = TMath::ATanH(p_z/p);
+        }
+
+        void calculate_p_t() {
+            p_t = sqrt(p_x*p_x + p_y*p_y);
         }
 };
 
@@ -99,10 +239,24 @@ class Event {
             }
 
             Particle* positives[2];
-            int positive_index = 0;
             Particle* negatives[2];
-            int negative_index = 0;
 
+            get_positives_and_negatives(positives, negatives);
+
+            Particle* origin1_c1 = reconstruct_1_from_2(positives[0], negatives[0], type);
+            origins[0][0] = origin1_c1;
+            Particle* origin2_c1 = reconstruct_1_from_2(positives[1], negatives[1], type);
+            origins[0][1] = origin2_c1;
+            
+            Particle* origin1_c2 = reconstruct_1_from_2(positives[0], negatives[1], type);
+            origins[1][0] = origin1_c2;
+            Particle* origin2_c2 = reconstruct_1_from_2(positives[1], negatives[0], type);
+            origins[1][1] = origin2_c2;
+        }
+
+        void get_positives_and_negatives(Particle* positives[2], Particle* negatives[2]) {
+            int positive_index = 0;
+            int negative_index = 0;
             for (int i=0; i<4; ++i) {
                 Particle* current_particle = *(particles+i);
                 if (current_particle->charge == 1) {
@@ -115,16 +269,6 @@ class Event {
                     throw invalid_argument("particle has invalid charge");
                 }
             }
-
-            Particle* origin1_c1 = reconstruct_1_from_2(positives[0], negatives[0], type);
-            origins[0][0] = origin1_c1;
-            Particle* origin2_c1 = reconstruct_1_from_2(positives[1], negatives[1], type);
-            origins[0][1] = origin2_c1;
-            
-            Particle* origin1_c2 = reconstruct_1_from_2(positives[0], negatives[1], type);
-            origins[1][0] = origin1_c2;
-            Particle* origin2_c2 = reconstruct_1_from_2(positives[1], negatives[0], type);
-            origins[1][1] = origin2_c2;
         }
     
         Particle* reconstruct_1_from_2(Particle* particle1, Particle* particle2, int type) {
@@ -536,8 +680,11 @@ void four_track_glueball_analysis() {
     const float allowed_greatest_dz = 0.5; //0.6
 
     const float four_track_rho_mass = 739;
-    const float four_track_minimum_rho_mass = four_track_rho_mass - 163*(2.0/3);
-    const float four_track_maximum_rho_mass = four_track_rho_mass + 163*(2.0/3);
+    const float four_track_minimum_rho_mass = four_track_rho_mass - 163*(1.);
+    const float four_track_maximum_rho_mass = four_track_rho_mass + 163*(1.);
+
+    const float maximum_fourtrack_eta = 0.65; //0.65
+    const float maximum_fourtrack_p_t = 10000;
 
     map<string, Double_t> results;
 
@@ -569,28 +716,24 @@ void four_track_glueball_analysis() {
     auto dz_maximum_rho_distribution = new TH1F("dz_maximum_rho_distribution", ";dz maximum (cm)",200,0.2,2);
 
     auto raw_four_track_mass = new TH1F("raw_four_track_mass", ";mass (MeV)",200,1000,3000);
-    auto four_track_mass = new TH1F("four_track_mass", ";mass (MeV)",150,1000,3000);
+    auto four_track_mass = new TH1F("four_track_mass", "four track mass;mass (MeV);events / 10 MeV",200,1000,3000);
 
-    auto global_track_eta = new TH1F("global_track_eta", "events;eta",200,0,4);
-    auto rho_track_eta = new TH1F("rho_track_eta", "events;eta",200,0,4);
+    auto global_four_track_eta = new TH1F("global_four_track_eta", "four track eta of all events;events;eta",200,0,5);
+    auto rho_four_track_eta = new TH1F("rho_four_track_eta", "four track eta of rho events;events;eta",200,0,5);
 
-    auto global_two_track_eta = new TH1F("global_two_track_eta", "events;eta",200,0,4);
-    auto rho_two_track_eta = new TH1F("rho_two_track_eta", "events;eta",200,0,4);
+    auto raw_four_track_eta_vs_mass = new TH2F("raw_four_track_eta_vs_mass", ";eta;mass (MeV)",100,0,5,100,1000,3000);
+    auto four_track_eta_vs_mass = new TH2F("four_track_eta_vs_mass", ";eta;mass (MeV)",50,0,5,50,1000,3000);
 
-    auto global_four_track_eta = new TH1F("global_four_track_eta", "events;eta",200,0,4);
-    auto rho_four_track_eta = new TH1F("rho_four_track_eta", "events;eta",200,0,4);
+    auto global_four_track_pt = new TH1F("global_four_track_pt", "four track pt of all events;events;pt (MeV)",200,0,1500);
+    auto rho_four_track_pt = new TH1F("rho_four_track_pt", "four track pt of rho events;events;pt (MeV)",200,0,1500);
 
 
-    gStyle->SetOptStat(0);
+    //gStyle->SetOptStat(0);
     gStyle->SetPalette(kCividis);
     rho_masses->Sumw2();
     rho_masses_raw->Sumw2();
     raw_four_track_mass->Sumw2();
     four_track_mass->Sumw2();
-    global_track_eta->Sumw2();
-    rho_track_eta->Sumw2();
-    global_two_track_eta->Sumw2();
-    rho_two_track_eta->Sumw2();
     global_four_track_eta->Sumw2();
     rho_four_track_eta->Sumw2();
 
@@ -608,7 +751,8 @@ void four_track_glueball_analysis() {
     TTreeReaderValue<Float_t> ThxL(Reader, "ThxL");
     TTreeReaderValue<Float_t> ThyL(Reader, "ThyL");
 
-    
+    TTreeReaderArray<Float_t> trk_dedx(Reader, "trk_dedx");
+
 
     while (Reader.Next()) {
 
@@ -635,20 +779,24 @@ void four_track_glueball_analysis() {
             particle->dxy = trk_dxy[i];
             particle->dz = trk_dz[i];
 
-            if (particle->eta > 1) {
-                skip = true;
-            }
+            particle->dEdx = trk_dedx[i];
         }
-
-        if (skip) {
-            //continue;
-        }
-
 
         
+        bool non_pion = false;
+        for (Particle* particle : particles) {
+            if (!(is_unknown_pion((particle->p)/1000, particle->dEdx))) {
+                non_pion = true;
+            }
+        }
+        if (non_pion) {
+            continue;
+        }
+        
+
         /*
         for (Particle* particle : particles) {
-            //cout << "momentum: " << particle.p_t << ", charge: " << particle.charge << endl;
+            cout << "momentum: " << particle->p_t << ", charge: " << particle->charge << endl;
             cout << "p_x: " << particle->p_x << ", p_y: " << particle->p_y << ", p_z: " << particle->p_z << ", Dp: " 
             << particle->p - sqrt(pow(particle->p_x, 2)+pow(particle->p_y, 2)+pow(particle->p_z, 2)) 
             << ", Dp_t: " << particle->p_t - sqrt(pow(particle->p_x, 2)+pow(particle->p_y, 2)) << ", charge: " << particle->charge << endl;
@@ -675,10 +823,28 @@ void four_track_glueball_analysis() {
             //cout << "INVALID" << endl << endl;
             continue;
         }
-        
-        for (Particle* particle : particles) {
-            global_track_eta->Fill(particle->eta);
+
+        /*
+        Particle* positives[2];
+        Particle* negatives[2];
+        current_event.get_positives_and_negatives(positives, negatives);
+        bool valid = false;
+
+        if (is_pion((positives[0]->p)/1000, positives[0]->dEdx) && is_pion((positives[1]->p)/1000, positives[1]->dEdx)) {
+            if (is_unknown_pion((negatives[0]->p)/1000, negatives[0]->dEdx) && is_unknown_pion((negatives[1]->p)/1000, negatives[1]->dEdx)) {
+                valid = true;
+            }
         }
+        if (is_pion((negatives[0]->p)/1000, negatives[0]->dEdx) && is_pion((negatives[1]->p)/1000, negatives[1]->dEdx)) {
+            if (is_unknown_pion((positives[0]->p)/1000, positives[0]->dEdx) && is_unknown_pion((positives[1]->p)/1000, positives[1]->dEdx)) {
+                valid = true;
+            }
+        }
+
+        if (!valid) {
+            continue;
+        }
+        */
         
 
         current_event.calculate_momentum_of_diffractive_system();
@@ -689,27 +855,24 @@ void four_track_glueball_analysis() {
 
         prot_px_vs_diff_px->Fill(current_event.PR_p[0]+current_event.PL_p[0], current_event.diff_p[0]);
         prot_py_vs_diff_py->Fill(current_event.PR_p[1]+current_event.PL_p[1], current_event.diff_p[1]);
-        
-
-        rhos[0][0]->calculate_eta();
-        rhos[0][1]->calculate_eta();
-        rhos[1][0]->calculate_eta();
-        rhos[1][1]->calculate_eta();
-
-        global_two_track_eta->Fill(rhos[0][0]->eta);
-        global_two_track_eta->Fill(rhos[0][1]->eta);
-        global_two_track_eta->Fill(rhos[1][0]->eta);
-        global_two_track_eta->Fill(rhos[1][1]->eta);
 
         Particle* fourtrack_1 = current_event.reconstruct_1_from_2(rhos[0][0], rhos[0][1], 3);
         raw_four_track_mass->Fill(fourtrack_1->m);
         fourtrack_1->calculate_eta();
-        global_four_track_eta->Fill(fourtrack_1->eta);
+        global_four_track_eta->Fill(abs(fourtrack_1->eta));
 
         Particle* fourtrack_2 = current_event.reconstruct_1_from_2(rhos[1][0], rhos[1][1], 3);
         raw_four_track_mass->Fill(fourtrack_2->m);
         fourtrack_2->calculate_eta();
-        global_four_track_eta->Fill(fourtrack_2->eta);
+        global_four_track_eta->Fill(abs(fourtrack_2->eta));
+
+        raw_four_track_eta_vs_mass->Fill(abs(fourtrack_1->eta), fourtrack_1->m);
+        raw_four_track_eta_vs_mass->Fill(abs(fourtrack_2->eta), fourtrack_2->m);
+
+        fourtrack_1->calculate_p_t();
+        fourtrack_2->calculate_p_t();
+        global_four_track_pt->Fill(fourtrack_1->p_t);
+        global_four_track_pt->Fill(fourtrack_2->p_t);
 
 
         float raw_masses[2];
@@ -768,55 +931,37 @@ void four_track_glueball_analysis() {
             rho_masses->Fill(masses[0], masses[1]);
         }
 
-        bool valid = false;
         if (four_track_minimum_rho_mass < rhos[0][0]->m && rhos[0][0]->m < four_track_maximum_rho_mass && four_track_minimum_rho_mass < rhos[0][1]->m && rhos[0][1]->m < four_track_maximum_rho_mass) {
 
             Particle* fourtrack_1 = current_event.reconstruct_1_from_2(rhos[0][0], rhos[0][1], 3);
-            four_track_mass->Fill(fourtrack_1->m);
             fourtrack_1->calculate_eta();
-            rho_four_track_eta->Fill(fourtrack_1->eta);
-
-            if (fourtrack_1->eta < 0.25) {
-
-                rhos[0][0]->calculate_eta();
-                rhos[0][1]->calculate_eta();
-                rho_two_track_eta->Fill(rhos[0][0]->eta);
-                rho_two_track_eta->Fill(rhos[0][1]->eta);
-
+            fourtrack_1->calculate_p_t();
+            rho_four_track_pt->Fill(fourtrack_1->p_t);
+            rho_four_track_eta->Fill(abs(fourtrack_1->eta));
+            four_track_eta_vs_mass->Fill(abs(fourtrack_1->eta), fourtrack_1->m);
+            if (abs(fourtrack_1->eta) < maximum_fourtrack_eta && fourtrack_1->p_t < maximum_fourtrack_p_t) {
+                four_track_mass->Fill(fourtrack_1->m);
             }
-            
-            valid = true;
         }
+        
 
         if (four_track_minimum_rho_mass < rhos[1][0]->m && rhos[1][0]->m < four_track_maximum_rho_mass && four_track_minimum_rho_mass < rhos[1][1]->m && rhos[1][1]->m < four_track_maximum_rho_mass) {
             
             Particle* fourtrack_2 = current_event.reconstruct_1_from_2(rhos[1][0], rhos[1][1], 3);
-            four_track_mass->Fill(fourtrack_2->m);
             fourtrack_2->calculate_eta();
-            rho_four_track_eta->Fill(fourtrack_2->eta);
-
-            if (fourtrack_2->eta < 0.25) {
-
-                rhos[1][0]->calculate_eta();
-                rhos[1][1]->calculate_eta();
-                rho_two_track_eta->Fill(rhos[1][0]->eta);
-                rho_two_track_eta->Fill(rhos[1][1]->eta);
-
-            }
-            
-            valid = true;
-        }
-
-        if (valid) {
-            for (Particle* particle : particles) {
-                rho_track_eta->Fill(particle->eta);
+            fourtrack_2->calculate_p_t();
+            rho_four_track_pt->Fill(fourtrack_2->p_t);
+            rho_four_track_eta->Fill(abs(fourtrack_2->eta));
+            four_track_eta_vs_mass->Fill(abs(fourtrack_2->eta), fourtrack_2->m);
+            if (abs(fourtrack_2->eta) < maximum_fourtrack_eta  && fourtrack_2->p_t < maximum_fourtrack_p_t) {
+                four_track_mass->Fill(fourtrack_2->m);
             }
         }
 
         //cout << endl;
         //cout << endl;
 
-    } 
+    }
 
 
     auto px_comparison = new TCanvas("Canvas0","Canvas0");
@@ -1801,26 +1946,29 @@ void four_track_glueball_analysis() {
     auto raw_four_track_mass_canvas = new TCanvas("raw_four_track_mass_canvas","raw_four_track_mass_canvas");
     raw_four_track_mass->Draw();
 
-    auto four_track_mass_canvas = new TCanvas("four_track_mass_canvas","four_track_mass_canvas");
-    four_track_mass->Draw();
-
-    auto global_track_eta_canvas = new TCanvas("global_track_eta_canvas","global_track_eta_canvas");
-    global_track_eta->Draw();
-
-    auto rho_track_eta_canvas = new TCanvas("rho_track_eta_canvas","rho_track_eta_canvas");
-    rho_track_eta->Draw();
-
-    auto global_two_track_eta_canvas = new TCanvas("global_two_track_eta_canvas","global_two_track_eta_canvas");
-    global_two_track_eta->Draw();
-
-    auto rho_two_track_eta_canvas = new TCanvas("rho_two_track_eta_canvas","rho_two_track_eta_canvas");
-    rho_two_track_eta->Draw();
-
     auto global_four_track_eta_canvas = new TCanvas("global_four_track_eta_canvas","global_four_track_eta_canvas");
     global_four_track_eta->Draw();
 
     auto rho_four_track_eta_canvas = new TCanvas("rho_four_track_eta_canvas","rho_four_track_eta_canvas");
     rho_four_track_eta->Draw();
+
+    auto raw_four_track_eta_vs_mass_canvas = new TCanvas("raw_four_track_eta_vs_mass_canvas","raw_four_track_eta_vs_mass_canvas");
+    raw_four_track_eta_vs_mass->Draw("colz");
+
+    auto four_track_eta_vs_mass_canvas = new TCanvas("four_track_eta_vs_mass_canvas","four_track_eta_vs_mass_canvas");
+    four_track_eta_vs_mass->Draw("colz");
+
+    auto global_four_track_pt_canvas = new TCanvas("global_four_track_pt_canvas","global_four_track_pt_canvas");
+    global_four_track_pt->Draw();
+
+    auto rho_four_track_pt_canvas = new TCanvas("rho_four_track_pt_canvas","rho_four_track_pt_canvas");
+    rho_four_track_pt->Draw();
+
+
+
+    auto four_track_mass_canvas = new TCanvas("four_track_mass_canvas","four_track_mass_canvas");
+    four_track_mass->Draw();
+
 
     cout << "---RESULTS---" << endl << endl;
 
