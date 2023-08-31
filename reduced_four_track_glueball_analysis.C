@@ -1,6 +1,34 @@
 
 #include "CMS_lumi.C"
 
+int get_trees(string filename, TString tree_names[]) {
+    string file_path = "./ntuples/";
+    if (filename == file_path+"TOTEM40.root"||filename == file_path+"TOTEM41.root"||filename == file_path+"TOTEM42.root"||filename == file_path+"TOTEM43_old.root") {
+        tree_names[0] = "tree;7";
+        tree_names[1] = "tree;8";
+        return 1;
+    } else if (filename == file_path+"TOTEM20.root"||filename == file_path+"TOTEM21.root"||filename == file_path+"TOTEM22.root"||filename == file_path+"TOTEM23.root") {
+        tree_names[0] = "tree;4";
+        tree_names[1] = "tree;5";
+        return 1;
+    } else if (filename == file_path+"TOTEM43.root") {
+        tree_names[0] = "tree;1";
+        tree_names[1] = "";
+        return 1;
+    } else if (filename == file_path+"TOTEM.root") {
+        tree_names[0] = "tree;51";
+        tree_names[1] = "tree;52";
+        return 1;
+    } else if (filename == file_path+"phi.root"||filename == file_path+"rho.root") {
+        tree_names[0] = "tree;1";
+        tree_names[1] = ""; 
+        return 1;
+    } else {
+        throw invalid_argument("Unknown file");
+    }
+
+}
+
 string create_interval(float start, float stop) {
     return "((("+to_string(start)+"<x) ? 1 : 0) - (("+to_string(stop)+"<x) ? 1 : 0))";
 }
@@ -54,6 +82,14 @@ class Particle {
 
         void calculate_mass() {
             m = sqrt(pow(E, 2) - pow(p, 2));
+        }
+
+        void calculate_eta() {
+            eta = TMath::ATanH(p_z/p);
+        }
+
+        void calculate_p_t() {
+            p_t = sqrt(p_x*p_x + p_y*p_y);
         }
 };
 
@@ -507,111 +543,177 @@ string rounded(float value, int decimals) {
 
 void reduced_four_track_glueball_analysis() {
 
-    const string filenames[] = {"./ntuples/TOTEM40.root", "./ntuples/TOTEM41.root", "./ntuples/TOTEM42.root", "./ntuples/TOTEM43_old.root"}; //"TOTEM43.root", kpkm.roo, 110000.root, rho.root, MinBias.root
-//{"./ntuples/TOTEM40.root", "./ntuples/TOTEM41.root", "./ntuples/TOTEM42.root", "./ntuples/TOTEM43_old.root"}
-//{"./ntuples/TOTEM20.root", "./ntuples/TOTEM21.root", "./ntuples/TOTEM22.root", "./ntuples/TOTEM23.root"}
+    //const string filenames[] = {"./ntuples/TOTEM43.root"};
+    //const string filenames[] = {"./ntuples/TOTEM40.root", "./ntuples/TOTEM41.root", "./ntuples/TOTEM42.root", "./ntuples/TOTEM43_old.root"}; //"TOTEM43.root", kpkm.roo, 110000.root, rho.root, MinBias.root
+    const string filenames[] = {"./ntuples/TOTEM20.root", "./ntuples/TOTEM21.root", "./ntuples/TOTEM22.root", "./ntuples/TOTEM23.root"};
+    //{"./ntuples/TOTEM40.root", "./ntuples/TOTEM41.root", "./ntuples/TOTEM42.root", "./ntuples/TOTEM43_old.root"}
+    //{"./ntuples/TOTEM20.root", "./ntuples/TOTEM21.root", "./ntuples/TOTEM22.root", "./ntuples/TOTEM23.root"}
     bool monte_carlo = false;
 
     const float pion_mass = 139.57039;//139.57039
-    const float static_rho_mass = 724.601273; //720, 770, 743, 775.02
+    const float static_rho_mass = 750.331888; //743.399623
     float dynamic_rho_mass = static_rho_mass;
-    const float static_K_mass = 498.170974;
+    const float static_K_mass = 500.892676;
     float dynamic_K_mass = static_K_mass;
 
     const float allowed_px_difference = 200;
     const float allowed_py_difference = 200;
     const float allowed_dxy_variance = 0.15;
     const float allowed_dz_variance = 0.2;
-    float allowed_rho_mass_difference = 212.210888;
+    float allowed_rho_mass_difference = 293.381744;//290.834335
     const float allowed_rho_mass_difference_supercut = 50;
     
-    float raw_K_radius = 37.935224;
+    float raw_K_radius = 36;//39.260877
     float K_radius = 0.65*raw_K_radius;
     const float allowed_greatest_dxy = 0.2; //0.2
     const float allowed_greatest_dz = 0.5; //0.6
+
+    const float four_track_rho_mass = 739;
+    const float four_track_minimum_rho_mass = four_track_rho_mass - 163*(1.);
+    const float four_track_maximum_rho_mass = four_track_rho_mass + 163*(1.);
+
+    const float maximum_fourtrack_eta = 0.1; //0.65
+    const float maximum_fourtrack_p_t = 5000000;
 
     map<string, Double_t> results;
 
     auto rho_masses = new TH2F("rho_masses", "Masses of potential rho particles with impact parameter cuts;m1/MeV;m2/MeV",200,200,1400,200,200,1400);
     auto rho_masses_raw = new TH2F("rho_masses_raw", ";particle 1 mass (MeV);particle 2 mass (MeV)",200,200,1400,200,200,1400);
 
+    auto raw_four_track_mass = new TH1F("raw_four_track_mass", ";mass (MeV)",200,1000,3000);
+    auto four_track_mass = new TH1F("four_track_mass", "four track mass;mass (MeV);events / 10 MeV",200,1000,3000);
+
+    auto global_four_track_eta = new TH1F("global_four_track_eta", "four track eta of all events;events;eta",200,0,5);
+    auto rho_four_track_eta = new TH1F("rho_four_track_eta", "four track eta of rho events;events;eta",200,0,5);
+
+    auto global_four_track_pt = new TH1F("global_four_track_pt", "four track pt of all events;events;pt (MeV)",200,0,1500);
+    auto rho_four_track_pt = new TH1F("rho_four_track_pt", "four track pt of rho events;events;pt (MeV)",200,0,1500);
+
     gStyle->SetOptStat(0);
     gStyle->SetPalette(kCividis);
     rho_masses->Sumw2();
     rho_masses_raw->Sumw2();
+    raw_four_track_mass->Sumw2();
+    four_track_mass->Sumw2();
+    global_four_track_eta->Sumw2();
+    rho_four_track_eta->Sumw2();
+    global_four_track_pt->Sumw2();
+    rho_four_track_pt->Sumw2();
 
     for (string filename : filenames) {
 
         cout << "Reading file: " + filename << endl;
 
         TFile *file = TFile::Open(filename.c_str());
-        TTree* tree = (TTree*)file->Get("tree");
-        TTreeReader Reader(tree);
-        //TTreeReader Reader("tree", file);
 
-        TTreeReaderArray<Float_t> trk_p(Reader, "trk_p");
-        TTreeReaderArray<Float_t> trk_pt(Reader, "trk_pt");
-        TTreeReaderArray<Int_t> trk_q(Reader, "trk_q");
-        TTreeReaderArray<Float_t> trk_eta(Reader, "trk_eta");
-        TTreeReaderArray<Float_t> trk_phi(Reader, "trk_phi");
+        TString trees[2];
+        int tree_count = get_trees(filename, trees);
+        for (int i=0; i<tree_count; ++i) {
 
-        while (Reader.Next()) {
+            TTree* tree = (TTree*)file->Get(trees[i]);
+            TTreeReader Reader(tree);
+            //TTreeReader Reader("tree", file);
 
-            if (trk_p.GetSize() != 4) {
-                continue;
-            }
+            TTreeReaderArray<Float_t> trk_p(Reader, "trk_p");
+            TTreeReaderArray<Float_t> trk_pt(Reader, "trk_pt");
+            TTreeReaderArray<Int_t> trk_q(Reader, "trk_q");
+            TTreeReaderArray<Float_t> trk_eta(Reader, "trk_eta");
+            TTreeReaderArray<Float_t> trk_phi(Reader, "trk_phi");
 
-            Particle* particles[4];
+            while (Reader.Next()) {
 
-            for (int i=0;i<4;++i) {
-                Particle* particle = new Particle(1);
-                particle->p = 1000*trk_p[i];
-                particle->p_t = 1000*trk_pt[i];
-                particle->charge = trk_q[i];
-                particle->eta = trk_eta[i];
-                particle->phi = trk_phi[i];
-                particle->m = pion_mass;
-                particle->calculate_3d_momentum();
-                particle->calculate_energy();
-                particles[i] = particle;
-            }
-            
-            /*
-            for (Particle* particle : particles) {
-                //cout << "momentum: " << particle.p_t << ", charge: " << particle.charge << endl;
-                cout << "p_x: " << particle->p_x << ", p_y: " << particle->p_y << ", p_z: " << particle->p_z << ", Dp: " 
-                << particle->p - sqrt(pow(particle->p_x, 2)+pow(particle->p_y, 2)+pow(particle->p_z, 2)) 
-                << ", Dp_t: " << particle->p_t - sqrt(pow(particle->p_x, 2)+pow(particle->p_y, 2)) << ", charge: " << particle->charge << endl;
-            }
-            */
-
-            Event current_event(particles, 4);
-
-            float total_charge = current_event.calculate_total_charge();
-            if (total_charge != 0) {
-                continue;
-            }
-
-            Particle* rhos[2][2];
-            current_event.reconstruct_2_from_4(rhos, 2);
-            
-            float raw_masses[2];
-            for (int i=0; i<2; ++i) {
-                for (int j=0; j<2; ++j) {
-                    Particle* rho = rhos[i][j];
-                    raw_masses[j] = rho->m;
+                if (trk_p.GetSize() != 4) {
+                    continue;
                 }
-                rho_masses_raw->Fill(raw_masses[0], raw_masses[1]);
-            }
-            
 
-            float masses[2];
-            for (int i=0; i<2; ++i) {
-                for (int j=0; j<2; ++j) {
-                    Particle* rho = rhos[i][j];
-                    masses[j] = rho->m;
+                Particle* particles[4];
+
+                for (int i=0;i<4;++i) {
+                    Particle* particle = new Particle(1);
+                    particle->p = 1000*trk_p[i];
+                    particle->p_t = 1000*trk_pt[i];
+                    particle->charge = trk_q[i];
+                    particle->eta = trk_eta[i];
+                    particle->phi = trk_phi[i];
+                    particle->m = pion_mass;
+                    particle->calculate_3d_momentum();
+                    particle->calculate_energy();
+                    particles[i] = particle;
                 }
-                rho_masses->Fill(masses[0], masses[1]);
+                
+                /*
+                for (Particle* particle : particles) {
+                    //cout << "momentum: " << particle.p_t << ", charge: " << particle.charge << endl;
+                    cout << "p_x: " << particle->p_x << ", p_y: " << particle->p_y << ", p_z: " << particle->p_z << ", Dp: " 
+                    << particle->p - sqrt(pow(particle->p_x, 2)+pow(particle->p_y, 2)+pow(particle->p_z, 2)) 
+                    << ", Dp_t: " << particle->p_t - sqrt(pow(particle->p_x, 2)+pow(particle->p_y, 2)) << ", charge: " << particle->charge << endl;
+                }
+                */
+
+                Event current_event(particles, 4);
+
+                float total_charge = current_event.calculate_total_charge();
+                if (total_charge != 0) {
+                    continue;
+                }
+
+                Particle* rhos[2][2];
+                current_event.reconstruct_2_from_4(rhos, 2);
+                
+                float raw_masses[2];
+                for (int i=0; i<2; ++i) {
+                    for (int j=0; j<2; ++j) {
+                        Particle* rho = rhos[i][j];
+                        raw_masses[j] = rho->m;
+                    }
+                    rho_masses_raw->Fill(raw_masses[0], raw_masses[1]);
+                }
+                
+
+                float masses[2];
+                for (int i=0; i<2; ++i) {
+                    for (int j=0; j<2; ++j) {
+                        Particle* rho = rhos[i][j];
+                        masses[j] = rho->m;
+                    }
+                    rho_masses->Fill(masses[0], masses[1]);
+                }
+                Particle* fourtrack_1 = current_event.reconstruct_1_from_2(rhos[0][0], rhos[0][1], 3);
+                raw_four_track_mass->Fill(fourtrack_1->m);
+                fourtrack_1->calculate_eta();
+                global_four_track_eta->Fill(abs(fourtrack_1->eta));
+
+                Particle* fourtrack_2 = current_event.reconstruct_1_from_2(rhos[1][0], rhos[1][1], 3);
+                raw_four_track_mass->Fill(fourtrack_2->m);
+                fourtrack_2->calculate_eta();
+                global_four_track_eta->Fill(abs(fourtrack_2->eta));
+
+                //raw_four_track_eta_vs_mass->Fill(abs(fourtrack_1->eta), fourtrack_1->m);
+                //raw_four_track_eta_vs_mass->Fill(abs(fourtrack_2->eta), fourtrack_2->m);
+
+                fourtrack_1->calculate_p_t();
+                fourtrack_2->calculate_p_t();
+                global_four_track_pt->Fill(fourtrack_1->p_t);
+                global_four_track_pt->Fill(fourtrack_2->p_t);
+
+                if (four_track_minimum_rho_mass < rhos[0][0]->m && rhos[0][0]->m < four_track_maximum_rho_mass && four_track_minimum_rho_mass < rhos[0][1]->m && rhos[0][1]->m < four_track_maximum_rho_mass) {
+                    rho_four_track_pt->Fill(fourtrack_1->p_t);
+                    rho_four_track_eta->Fill(abs(fourtrack_1->eta));
+                    //four_track_eta_vs_mass->Fill(abs(fourtrack_1->eta), fourtrack_1->m);
+                    if (abs(fourtrack_1->eta) < maximum_fourtrack_eta && fourtrack_1->p_t < maximum_fourtrack_p_t) {
+                        four_track_mass->Fill(fourtrack_1->m);
+                    }
+                }
+                
+
+                if (four_track_minimum_rho_mass < rhos[1][0]->m && rhos[1][0]->m < four_track_maximum_rho_mass && four_track_minimum_rho_mass < rhos[1][1]->m && rhos[1][1]->m < four_track_maximum_rho_mass) {
+                    rho_four_track_pt->Fill(fourtrack_2->p_t);
+                    rho_four_track_eta->Fill(abs(fourtrack_2->eta));
+                    //four_track_eta_vs_mass->Fill(abs(fourtrack_2->eta), fourtrack_2->m);
+                    if (abs(fourtrack_2->eta) < maximum_fourtrack_eta  && fourtrack_2->p_t < maximum_fourtrack_p_t) {
+                        four_track_mass->Fill(fourtrack_2->m);
+                    }
+                }
             }
         }
     } 
@@ -1421,6 +1523,24 @@ void reduced_four_track_glueball_analysis() {
 
     CMS_lumi(raw, 17, 33);
 
+
+    auto raw_four_track_mass_canvas = new TCanvas("raw_four_track_mass_canvas","raw_four_track_mass_canvas");
+    raw_four_track_mass->Draw();
+
+    auto global_four_track_eta_canvas = new TCanvas("global_four_track_eta_canvas","global_four_track_eta_canvas");
+    global_four_track_eta->Draw();
+
+    auto rho_four_track_eta_canvas = new TCanvas("rho_four_track_eta_canvas","rho_four_track_eta_canvas");
+    rho_four_track_eta->Draw();
+
+    auto global_four_track_pt_canvas = new TCanvas("global_four_track_pt_canvas","global_four_track_pt_canvas");
+    global_four_track_pt->Draw();
+
+    auto rho_four_track_pt_canvas = new TCanvas("rho_four_track_pt_canvas","rho_four_track_pt_canvas");
+    rho_four_track_pt->Draw();
+
+    auto four_track_mass_canvas = new TCanvas("four_track_mass_canvas","four_track_mass_canvas");
+    four_track_mass->Draw();
 
     cout << "---RESULTS---" << endl << endl;
 
