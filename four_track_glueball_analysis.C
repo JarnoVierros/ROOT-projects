@@ -662,7 +662,7 @@ void four_track_glueball_analysis() {
     }
 
     const float pion_mass = 139.57039;//139.57039
-    const float static_rho_mass = 736.659986;//use rho gauss peak 720, 770, 743, 775.02
+    const float static_rho_mass = 736.659978;//use rho gauss peak 720, 770, 743, 775.02
     float dynamic_rho_mass = static_rho_mass;
     const float static_K_mass = 498.171122;
     float dynamic_K_mass = static_K_mass;
@@ -677,14 +677,14 @@ void four_track_glueball_analysis() {
     float raw_K_radius = 40.019724;
     float K_radius = 0.65*raw_K_radius;
     const float allowed_greatest_dxy = 0.2; //0.2
-    const float allowed_greatest_dz = 0.5; //0.6
+    const float allowed_greatest_dz = 0.5; //0.5
 
     const float four_track_rho_mass = 739;
-    const float four_track_minimum_rho_mass = four_track_rho_mass - 163*(1.);
-    const float four_track_maximum_rho_mass = four_track_rho_mass + 163*(1.);
+    const float four_track_minimum_rho_mass = four_track_rho_mass - 163*(1);
+    const float four_track_maximum_rho_mass = four_track_rho_mass + 163*(1);
 
-    const float maximum_fourtrack_eta = 0.65; //0.65
-    const float maximum_fourtrack_p_t = 10000;
+    const float maximum_fourtrack_eta = 1.0; //0.65
+    const float maximum_fourtrack_p_t = 60000000;
 
     map<string, Double_t> results;
 
@@ -716,19 +716,27 @@ void four_track_glueball_analysis() {
     auto dz_maximum_rho_distribution = new TH1F("dz_maximum_rho_distribution", ";dz maximum (cm)",200,0.2,2);
 
     auto raw_four_track_mass = new TH1F("raw_four_track_mass", ";mass (MeV)",200,1000,3000);
-    auto four_track_mass = new TH1F("four_track_mass", "four track mass;mass (MeV);events / 10 MeV",200,1000,3000);
+    auto four_track_mass = new TH1F("four_track_mass", ";mass (MeV);events / 10 MeV",200,1000,3000);
 
-    auto global_four_track_eta = new TH1F("global_four_track_eta", "four track eta of all events;events;eta",200,0,5);
-    auto rho_four_track_eta = new TH1F("rho_four_track_eta", "four track eta of rho events;events;eta",200,0,5);
+    auto global_four_track_eta = new TH1F("global_four_track_eta", ";pseudorapidity #eta;events / 0.02 units",200,0,4);
+    auto rho_four_track_eta = new TH1F("rho_four_track_eta", ";pseudorapidity #eta;events  / 0.02 units",200,0,4);
 
-    auto raw_four_track_eta_vs_mass = new TH2F("raw_four_track_eta_vs_mass", ";eta;mass (MeV)",100,0,5,100,1000,3000);
-    auto four_track_eta_vs_mass = new TH2F("four_track_eta_vs_mass", ";eta;mass (MeV)",50,0,5,50,1000,3000);
+    auto raw_four_track_eta_vs_mass = new TH2F("raw_four_track_eta_vs_mass", ";eta;mass (MeV)",100,0,4,100,1000,3000);
+    auto four_track_eta_vs_mass = new TH2F("four_track_eta_vs_mass", ";eta;mass (MeV)",25,0,4,200,1000,3000);
 
-    auto global_four_track_pt = new TH1F("global_four_track_pt", "four track pt of all events;events;pt (MeV)",200,0,1500);
-    auto rho_four_track_pt = new TH1F("rho_four_track_pt", "four track pt of rho events;events;pt (MeV)",200,0,1500);
+    auto global_four_track_pt = new TH1F("global_four_track_pt", ";events / 7.5 MeV;pt (MeV)",200,0,1500);
+    auto rho_four_track_pt = new TH1F("rho_four_track_pt", ";events events / 7.5 MeV;pt (MeV)",200,0,1500);
+
+    const float inspection_low_limit = 2200; // bin 121: 2200-2210
+    const float inspection_high_limit = 2210;
+    auto dEdx_inspection = new TH2F("dEdx_inspection", ";p (GeV);dE/dx",200,0,4,200,0,12);
+
+    auto pT_inspection = new TH1F("pT_inspection", ";pT (MeV)",30,0,1500);
+
+    auto eta_inspection = new TH1F("eta_inspection", ";pseudorapidity;events / 0.1 units",30,0,0.1);
 
 
-    //gStyle->SetOptStat(0);
+    gStyle->SetOptStat(0);
     gStyle->SetPalette(kCividis);
     rho_masses->Sumw2();
     rho_masses_raw->Sumw2();
@@ -736,6 +744,9 @@ void four_track_glueball_analysis() {
     four_track_mass->Sumw2();
     global_four_track_eta->Sumw2();
     rho_four_track_eta->Sumw2();
+    global_four_track_pt->Sumw2();
+    rho_four_track_pt->Sumw2();
+    //eta_inspection->Sumw2();
 
     TTreeReaderArray<Float_t> trk_p(Reader, "trk_p");
     TTreeReaderArray<Float_t> trk_pt(Reader, "trk_pt");
@@ -782,7 +793,7 @@ void four_track_glueball_analysis() {
             particle->dEdx = trk_dedx[i];
         }
 
-        
+        /*
         bool non_pion = false;
         for (Particle* particle : particles) {
             if (!(is_unknown_pion((particle->p)/1000, particle->dEdx))) {
@@ -792,7 +803,7 @@ void four_track_glueball_analysis() {
         if (non_pion) {
             continue;
         }
-        
+        */
 
         /*
         for (Particle* particle : particles) {
@@ -931,6 +942,8 @@ void four_track_glueball_analysis() {
             rho_masses->Fill(masses[0], masses[1]);
         }
 
+        bool not_inspected = true;
+
         if (four_track_minimum_rho_mass < rhos[0][0]->m && rhos[0][0]->m < four_track_maximum_rho_mass && four_track_minimum_rho_mass < rhos[0][1]->m && rhos[0][1]->m < four_track_maximum_rho_mass) {
 
             Particle* fourtrack_1 = current_event.reconstruct_1_from_2(rhos[0][0], rhos[0][1], 3);
@@ -941,6 +954,15 @@ void four_track_glueball_analysis() {
             four_track_eta_vs_mass->Fill(abs(fourtrack_1->eta), fourtrack_1->m);
             if (abs(fourtrack_1->eta) < maximum_fourtrack_eta && fourtrack_1->p_t < maximum_fourtrack_p_t) {
                 four_track_mass->Fill(fourtrack_1->m);
+
+                if (inspection_low_limit < fourtrack_1->m && fourtrack_1->m < inspection_high_limit) {
+                    pT_inspection->Fill(fourtrack_1->p_t);
+                    for (Particle* particle : particles) {
+                        dEdx_inspection->Fill((particle->p)/1000, particle->dEdx);
+                    }
+                    eta_inspection->Fill(fourtrack_1->eta);
+                    not_inspected = false;
+                }
             }
         }
         
@@ -955,6 +977,20 @@ void four_track_glueball_analysis() {
             four_track_eta_vs_mass->Fill(abs(fourtrack_2->eta), fourtrack_2->m);
             if (abs(fourtrack_2->eta) < maximum_fourtrack_eta  && fourtrack_2->p_t < maximum_fourtrack_p_t) {
                 four_track_mass->Fill(fourtrack_2->m);
+
+                if (inspection_low_limit < fourtrack_2->m && fourtrack_2->m < inspection_high_limit && !not_inspected) {
+                    cout << "already inspected!" << endl;
+                }
+
+                if (inspection_low_limit < fourtrack_2->m && fourtrack_2->m < inspection_high_limit) {
+                    pT_inspection->Fill(fourtrack_2->p_t);
+                    if (not_inspected) {
+                        for (Particle* particle : particles) {
+                            dEdx_inspection->Fill((particle->p)/1000, particle->dEdx);
+                        }
+                    }
+                    eta_inspection->Fill(fourtrack_2->eta);
+                }
             }
         }
 
@@ -1880,12 +1916,12 @@ void four_track_glueball_analysis() {
 
     TLine rho_masses_raw_line1 = TLine(200, dynamic_rho_mass-allowed_rho_mass_difference, 1400, dynamic_rho_mass-allowed_rho_mass_difference);
     rho_masses_raw_line1.SetLineColor(2);
-    rho_masses_raw_line1.SetLineWidth(2);
+    rho_masses_raw_line1.SetLineWidth(4);
     rho_masses_raw_line1.DrawClone();
 
     TLine rho_masses_raw_line2 = TLine(200, dynamic_rho_mass+allowed_rho_mass_difference, 1400, dynamic_rho_mass+allowed_rho_mass_difference);
     rho_masses_raw_line2.SetLineColor(2);
-    rho_masses_raw_line2.SetLineWidth(2);
+    rho_masses_raw_line2.SetLineWidth(4);
     rho_masses_raw_line2.DrawClone();
 
     TArrow arrow1(850,500,770,690,0.02,"|>");
@@ -1930,7 +1966,7 @@ void four_track_glueball_analysis() {
 
     TLine line21 = TLine(allowed_greatest_dxy, 200, allowed_greatest_dxy, 1400);
     line21.SetLineColor(2);
-    line21.SetLineWidth(2);
+    line21.SetLineWidth(4);
     line21.DrawClone();
 
     auto dz_maximum = new TCanvas("dz_maximum_canvas","dz_maximum_canvas");
@@ -1939,7 +1975,7 @@ void four_track_glueball_analysis() {
 
     TLine line22 = TLine(allowed_greatest_dz, 200, allowed_greatest_dz, 1400);
     line22.SetLineColor(2);
-    line22.SetLineWidth(2);
+    line22.SetLineWidth(4);
     line22.DrawClone();
 
 
@@ -1948,9 +1984,11 @@ void four_track_glueball_analysis() {
 
     auto global_four_track_eta_canvas = new TCanvas("global_four_track_eta_canvas","global_four_track_eta_canvas");
     global_four_track_eta->Draw();
+    CMS_lumi(global_four_track_eta_canvas, 17, 11);
 
     auto rho_four_track_eta_canvas = new TCanvas("rho_four_track_eta_canvas","rho_four_track_eta_canvas");
     rho_four_track_eta->Draw();
+    CMS_lumi(rho_four_track_eta_canvas, 17, 11);
 
     auto raw_four_track_eta_vs_mass_canvas = new TCanvas("raw_four_track_eta_vs_mass_canvas","raw_four_track_eta_vs_mass_canvas");
     raw_four_track_eta_vs_mass->Draw("colz");
@@ -1960,15 +1998,40 @@ void four_track_glueball_analysis() {
 
     auto global_four_track_pt_canvas = new TCanvas("global_four_track_pt_canvas","global_four_track_pt_canvas");
     global_four_track_pt->Draw();
+    CMS_lumi(global_four_track_pt_canvas, 17, 11);
 
     auto rho_four_track_pt_canvas = new TCanvas("rho_four_track_pt_canvas","rho_four_track_pt_canvas");
     rho_four_track_pt->Draw();
+    CMS_lumi(rho_four_track_pt_canvas, 17, 11);
 
+    auto dEdx_inspection_canvas = new TCanvas("dEdx_inspection_canvas","dEdx_inspection_canvas");
+    dEdx_inspection->Draw("Colz");
+
+    TF1 high_k_curve1("high_k_curve1", "-[0]/(x*x)*log([1]*x*x)+[2]", 0, 1.5);
+    high_k_curve1.SetParameters(high_k_curve_a, high_k_curve_b, high_k_curve_c);
+    high_k_curve1.DrawCopy("Same");
+
+    TF1 low_k_curve1("low_k_curve1", "-[0]/(x*x)*log([1]*x*x)+[2]", 0, 1.5);
+    low_k_curve1.SetParameters(low_k_curve_a, low_k_curve_b, low_k_curve_c);
+    low_k_curve1.DrawCopy("Same");
+
+    auto pT_inspection_canvas = new TCanvas("pT_inspection_canvas","pT_inspection_canvas");
+    pT_inspection->Draw();
+
+    auto eta_inspection_canvas = new TCanvas("eta_inspection_canvas","eta_inspection_canvas");
+    eta_inspection->Draw();
 
 
     auto four_track_mass_canvas = new TCanvas("four_track_mass_canvas","four_track_mass_canvas");
     four_track_mass->Draw();
-
+    /*
+    TF1 raw_fJ_fit("raw_fJ_fit", "[0]*TMath::Gaus(x,[1],[2])", 2190, 2220);
+    raw_fJ_fit.SetParameters(6.64391e+01, 2.20358e+03, 2.09135e+01);
+    four_track_mass->Fit(&raw_fJ_fit, "N","",2190, 2220);
+    raw_fJ_fit.SetLineStyle(2);
+    raw_fJ_fit.DrawCopy("Same");
+    */
+    CMS_lumi(four_track_mass_canvas, 17, 11);
 
     cout << "---RESULTS---" << endl << endl;
 
